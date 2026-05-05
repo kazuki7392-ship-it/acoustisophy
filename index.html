@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.4 Natural Sustain</title>
+    <title>AcoustiSophy - v6.6 Editable</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -16,7 +16,13 @@
         #controls { display: flex; gap: 10px; margin-bottom: 8px; }
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
         #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
-        #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 1.6; white-space: pre-wrap; padding: 8px; background: #1a1a1a; border-radius: 8px; }
+        
+        #lyric-display { 
+            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 14px; line-height: 1.8; 
+            white-space: pre-wrap; padding: 10px; background: #1a1a1a; border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
+        }
+        
         #app-container { display: flex; height: 60%; width: 100%; }
         #chord-area { width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 12px; }
         .chord-btn { background-color: #2a2a2a; color: #fff; font-size: 28px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s; }
@@ -49,19 +55,29 @@
     </div>
 
     <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
-        <h2 style="color: #d4af37; margin-bottom: 20px;">Add New Song</h2>
-        <label>Song Title:</label>
+        
+        <select id="admin-mode-selector" style="width: 100%; padding: 12px; margin-bottom: 20px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 5px; font-size: 16px;">
+            <option value="">✨ 新規作成 (Create New Song)</option>
+            </select>
+
+        <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集モード中は曲名変更不可)</span>:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
-        <label>Lyrics (Use \n for line breaks):</label>
-        <textarea id="new-lyrics" rows="5" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;"></textarea>
-        <label>Chords (ルートと種類を選択):</label>
+        
+        <label>Lyrics & Chords (U-FRETのテキストをペースト):</label>
+        <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
+        
+        <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコードを自動抽出</button>
+
+        <label>コード一覧 (順番に追加・修正):</label>
         <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
+        
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ コードを追加</button>
+            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ 手動でコードを追加</button>
             <button type="button" id="remove-chord-btn" style="padding: 10px; background: #444; color: #ff6b6b; border: 1px solid #444; border-radius: 5px; cursor: pointer;">一個消す</button>
         </div>
-        <button id="submit-song" style="width: 100%; padding: 15px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 10px;">Upload to Cloud</button>
-        <button id="close-admin" style="width: 100%; padding: 10px; background: #444; color: #fff; border: none; border-radius: 10px;">Cancel</button>
+        
+        <button id="submit-song" style="width: 100%; padding: 15px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 10px; cursor: pointer;">Upload / Update Cloud</button>
+        <button id="close-admin" style="width: 100%; padding: 10px; background: #444; color: #fff; border: none; border-radius: 10px; cursor: pointer;">Cancel</button>
     </div>
     <button id="open-admin" style="position: fixed; bottom: 10px; right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
 
@@ -76,7 +92,7 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading data from Google Sheets..." } };
+        let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading..." } };
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
@@ -104,14 +120,9 @@
             try {
                 await Tone.start();
                 startBtn.textContent = "Loading Real Sound...";
-
                 synth = new Tone.Sampler({
-                    urls: {
-                        "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3",
-                        "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3"
-                    },
+                    urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
                     baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
-                    // ★音のフェードアウト時間を設定（自然な残響）
                     release: 1.5,
                     onload: () => {
                         startOverlay.style.opacity = '0';
@@ -140,59 +151,43 @@
                 btn.textContent = chord.name;
                 btn.setAttribute('data-notes', chord.notes);
                 
-                // ★左手（コード変更）時の処理
                 btn.onpointerdown = (e) => {
-                    // もし同じコードをもう一度タップしたら、意図的なカッティング（ミュート）と判定
-                    if (e.target.classList.contains('active')) {
-                        forceMute();
-                        return;
-                    }
-
+                    if (e.target.classList.contains('active')) { forceMute(); return; }
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
                     currentNotes = e.target.getAttribute('data-notes').split(',');
-                    
-                    // 新しいコードに移る時、前の音をフワッと消す（音が濁らないように）
                     softMute();
-                    // コードチェンジと同時に1回鳴らしたい場合はコメントアウトを外す
-                    // playStrum(); 
                 };
                 chordArea.appendChild(btn);
             });
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // ★右手のストローク処理
         function playStrum(e) {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
-
             const rect = strumArea.getBoundingClientRect();
             const yPos = e ? e.clientY - rect.top : rect.height / 2; 
-            const isDownstroke = yPos > rect.height / 2; // 下半分がダウン（親指）
-
+            const isDownstroke = yPos > rect.height / 2; 
             let velocity = (e && e.pressure) ? Math.max(0.3, e.pressure) : 0.8;
-
             let notesToPlay = [...currentNotes];
-            if (!isDownstroke) notesToPlay.reverse(); // 上半分（アップ）は高音から
+            if (!isDownstroke) notesToPlay.reverse(); 
 
             const strokeSpeed = isDownstroke ? 0.03 : 0.02;
+            activeNotes = []; 
 
             notesToPlay.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
                     const currentVel = isDownstroke ? Math.min(1, velocity + 0.1) : velocity;
-                    // ★ triggerAttackのみに変更。指を離してもMP3の最後まで自然に鳴り続ける！
                     synth.triggerAttack(transposedNote, now + (index * strokeSpeed), currentVel);
                     activeNotes.push(transposedNote);
                 } catch(err) { console.warn(err); }
             });
-
             strumArea.classList.add('strum-flash');
             setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
         }
 
-        // ★自然なミュート（コードチェンジ時用）
         function softMute() {
             if (!synth || activeNotes.length === 0) return;
             const now = Tone.now();
@@ -200,16 +195,13 @@
             activeNotes = [];
         }
 
-        // ★強制ミュート（同じコードボタンをタップした時用）
         function forceMute() {
             if (!synth) return;
             synth.releaseAll(Tone.now());
             activeNotes = [];
         }
 
-        // ★ストロークエリアは「叩くだけ」。離した時のミュート処理を完全削除！
         strumArea.onpointerdown = playStrum;
-        // strumArea.onpointerup = stopStrum; <-- これを消したのが最大のポイント！
 
         function initSongSelector() {
             const currentVal = songSelector.value;
@@ -223,18 +215,20 @@
             songSelector.onchange = (e) => loadSong(e.target.value);
         }
 
-        keySelector.onchange = (e) => { 
-            softMute();
-            currentTranspose = parseInt(e.target.value); 
-        };
+        keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); };
 
-        // 管理画面（Admin Panel）のロジック
+        // ==========================================
+        // 管理画面（編集機能・Upsert対応版）
+        // ==========================================
         const adminPanel = document.getElementById('admin-panel');
-        document.getElementById('open-admin').onclick = () => adminPanel.style.display = 'block';
-        document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
+        const adminModeSelector = document.getElementById('admin-mode-selector');
+        const titleInput = document.getElementById('new-title');
+        const lyricsInput = document.getElementById('new-lyrics');
+        const titleLockHint = document.getElementById('title-lock-hint');
+        const chordContainer = document.getElementById('chord-dropdown-container');
 
         const masterChordDictionary = {
-            "C": "C4,E4,G4", "Cm": "C4,Eb4,G4", "C7": "C4,E4,G4,Bb4", "Cm7": "C4,Eb4,G4,Bb4", "Csus4": "C4,F4,G4",
+            "C": "C4,E4,G4", "Cm": "C4,Eb4,G4", "C7": "C4,E4,G4,Bb4", "Cm7": "C4,Eb4,G4,Bb4", "Csus4": "C4,F4,G4", "Cadd9": "C4,E4,G4,D5",
             "C#": "C#4,F4,G#4", "C#m": "C#4,E4,G#4", "C#7": "C#4,F4,G#4,B4", "C#m7": "C#4,E4,G#4,B4",
             "D": "D4,F#4,A4", "Dm": "D4,F4,A4", "D7": "D4,F#4,A4,C5", "Dm7": "D4,F4,A4,C5", "Dsus4": "D4,G4,A4",
             "Eb": "Eb4,G4,Bb4", "Ebm": "Eb4,Gb4,Bb4", "Eb7": "Eb4,G4,Bb4,Db5",
@@ -247,16 +241,62 @@
             "Bb": "Bb3,D4,F4", "Bbm": "Bb3,Db4,F4", "Bb7": "Bb3,D4,F4,Ab4",
             "B": "B3,D#4,F#4", "Bm": "B3,D4,F#4", "B7": "B3,D#4,F#4,A4", "Bm7": "B3,D4,F#4,A4"
         };
-
         const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-        const qualityOptions = [
-            { label: "Major (なし)", value: "" }, { label: "minor (m)", value: "m" },
-            { label: "7th (7)", value: "7" }, { label: "minor 7th (m7)", value: "m7" }, { label: "sus4", value: "sus4" }
-        ];
+        const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" } ];
 
-        const chordContainer = document.getElementById('chord-dropdown-container');
+        // ★ 管理画面を開くときの処理
+        document.getElementById('open-admin').onclick = () => {
+            // モードセレクターの選択肢を最新にする
+            adminModeSelector.innerHTML = '<option value="">✨ 新規作成 (Create New Song)</option>';
+            for (const title in songDatabase) {
+                const opt = document.createElement('option');
+                opt.value = title; opt.textContent = `✏️ 編集: ${title}`;
+                adminModeSelector.appendChild(opt);
+            }
+            adminPanel.style.display = 'block';
+        };
 
-        document.getElementById('add-chord-btn').onclick = () => {
+        document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
+
+        // ★ モード切り替え（新規作成 ⇔ 編集）のロジック
+        adminModeSelector.onchange = (e) => {
+            const selectedTitle = e.target.value;
+            chordContainer.innerHTML = ''; 
+
+            if (!selectedTitle) {
+                // 新規作成モード
+                titleInput.value = '';
+                lyricsInput.value = '';
+                titleInput.readOnly = false;
+                titleInput.style.opacity = '1';
+                titleLockHint.style.display = 'none';
+            } else {
+                // 編集モード：既存のデータをフォームに復元する
+                const song = songDatabase[selectedTitle];
+                titleInput.value = selectedTitle;
+                titleInput.readOnly = true; // 曲名変更による無限増殖バグを防止
+                titleInput.style.opacity = '0.6';
+                titleLockHint.style.display = 'inline';
+                
+                lyricsInput.value = song.lyrics; // 改行もそのまま復元
+
+                // JSONのコード進行からデュアル・ドラムロールを逆生成する
+                song.chords.forEach(chord => {
+                    let root = "";
+                    let quality = "";
+                    if (chord.name.length > 1 && (chord.name[1] === '#' || chord.name[1] === 'b')) {
+                        root = chord.name.substring(0, 2);
+                        quality = chord.name.substring(2);
+                    } else {
+                        root = chord.name.substring(0, 1);
+                        quality = chord.name.substring(1);
+                    }
+                    createChordDropdown(root, quality);
+                });
+            }
+        };
+
+        function createChordDropdown(defaultRoot = "C", defaultQuality = "") {
             const wrapper = document.createElement('div');
             wrapper.className = 'chord-group';
             wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
@@ -267,7 +307,7 @@
             rootOptions.forEach(root => {
                 const opt = document.createElement('option');
                 opt.value = root; opt.textContent = root;
-                if(root === "C") opt.selected = true;
+                if(root === defaultRoot) opt.selected = true;
                 rootSelect.appendChild(opt);
             });
 
@@ -277,46 +317,56 @@
             qualityOptions.forEach(q => {
                 const opt = document.createElement('option');
                 opt.value = q.value; opt.textContent = q.label;
+                if(q.value === defaultQuality) opt.selected = true;
                 qualitySelect.appendChild(opt);
             });
 
             wrapper.appendChild(rootSelect);
             wrapper.appendChild(qualitySelect);
             chordContainer.appendChild(wrapper);
+        }
+
+        document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
+        document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
+
+        // 自動抽出
+        document.getElementById('auto-extract-btn').onclick = () => {
+            const text = document.getElementById('new-lyrics').value;
+            if (!text) return alert("テキストを貼り付けてください！");
+            const tokens = text.split(/[\s\n\t　]+/);
+            let foundUniqueChords = new Set(); 
+            tokens.forEach(token => {
+                let cleanToken = token.trim();
+                if (masterChordDictionary[cleanToken]) foundUniqueChords.add(cleanToken);
+            });
+            if (foundUniqueChords.size === 0) return alert("コードが見つかりません。");
+            chordContainer.innerHTML = '';
+            foundUniqueChords.forEach(chordName => {
+                let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1);
+                createChordDropdown(root, chordName.substring(root.length));
+            });
+            alert(`${foundUniqueChords.size} 個のコードを抽出しました！`);
         };
 
-        document.getElementById('remove-chord-btn').onclick = () => {
-            if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild);
-        };
-
+        // GASへの送信（新規追加 ＆ 編集の両方に対応）
         document.getElementById('submit-song').onclick = async () => {
-            const title = document.getElementById('new-title').value;
-            const lyrics = document.getElementById('new-lyrics').value;
+            const title = titleInput.value;
+            // 不要な改行を圧縮
+            const lyrics = lyricsInput.value.replace(/\n{3,}/g, '\n\n').trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
-            let hasError = false;
-            let errorChordName = "";
-
+            let hasError = false, errorChordName = "";
             const chordsArray = Array.from(chordGroups).map(group => {
-                const root = group.querySelector('.root-select').value;
-                const quality = group.querySelector('.quality-select').value;
-                const combinedName = root + quality; 
-
-                if (!masterChordDictionary[combinedName]) {
-                    hasError = true;
-                    errorChordName = combinedName;
-                }
-                return { 
-                    name: combinedName, 
-                    notes: masterChordDictionary[combinedName] || "C4,E4,G4" 
-                };
+                const combinedName = group.querySelector('.root-select').value + group.querySelector('.quality-select').value; 
+                if (!masterChordDictionary[combinedName]) { hasError = true; errorChordName = combinedName; }
+                return { name: combinedName, notes: masterChordDictionary[combinedName] || "C4,E4,G4" };
             });
 
             if (!title || !lyrics) return alert("曲名と歌詞は必須です！");
             if (chordsArray.length === 0) return alert("コードを最低1つは追加してください！");
             if (hasError) return alert(`「${errorChordName}」は未対応です！変更してください。`);
 
-            document.getElementById('submit-song').textContent = "Uploading...";
+            document.getElementById('submit-song').textContent = "Uploading / Updating...";
 
             try {
                 const response = await fetch(GAS_URL, {
@@ -325,16 +375,14 @@
                 });
                 const result = await response.json();
                 if (result.status === "success") {
-                    alert("クラウドへの登録が完了しました！");
+                    alert("クラウドへの保存（アップデート）が完了しました！");
                     adminPanel.style.display = 'none';
-                    document.getElementById('new-title').value = '';
-                    document.getElementById('new-lyrics').value = '';
-                    chordContainer.innerHTML = ''; 
+                    titleInput.value = ''; lyricsInput.value = ''; chordContainer.innerHTML = ''; 
                     location.reload(); 
                 } else { throw new Error(result.message); }
             } catch (error) {
                 alert("エラーが発生しました: " + error);
-                document.getElementById('submit-song').textContent = "Upload to Cloud";
+                document.getElementById('submit-song').textContent = "Upload / Update Cloud";
             }
         };
 
