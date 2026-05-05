@@ -228,34 +228,32 @@
             });
         }
 
-        // === 3. 起動（修正版） ===
-        startBtn.addEventListener('click', async () => {
+// === 3. 起動（完全修正版） ===
+startBtn.addEventListener('click', async () => {
             try {
-                // ブラウザの音声制限を解除
                 await Tone.start();
                 console.log("Audio Context Started");
 
-                // ★極限までシンプルにした PluckSynth（弦のシミュレーション）
-                // 複雑な設定値を一旦消して、デフォルト設定で確実に起動させます
+                // A. まず楽器（シンセ）を準備する
                 synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
-                
-                // 音量を少しだけ補正
                 synth.volume.value = 0;
 
-                // 初期化処理
-                initSongSelector();
-                loadSong(Object.keys(songDatabase)[0]); 
+                // B. 次に「曲リスト」を先に作る（これ重要！）
+                initSongSelector(); 
 
-                // 画面を消す処理（エラーがあるとここまで届かないので、確実に実行させる）
+                // C. リストができてから「1曲目」を読み込む
+                const firstSong = Object.keys(songDatabase)[0];
+                loadSong(firstSong); 
+
+                // D. 最後に画面を消す
                 startOverlay.style.opacity = '0';
                 setTimeout(() => { 
                     startOverlay.style.display = 'none'; 
                 }, 500);
 
             } catch (error) {
-                // 万が一エラーが出た場合、コンソールに表示する
                 console.error("起動エラー:", error);
-                alert("起動に失敗しました。もう一度お試しください。");
+                alert("起動に失敗しました。ページを再読み込みしてください。");
             }
         });
 
