@@ -70,54 +70,29 @@
                 if (data && Object.keys(data).length > 0) {
                     songDatabase = data;
                     console.log("Database Loaded:", songDatabase);
+                    
+                    // ★重要：データが届いたら、既に画面が開いていても「再描画」する
+                    initSongSelector();
+                    const currentSong = songSelector.value || Object.keys(songDatabase)[0];
+                    loadSong(currentSong);
+
+                    startBtn.textContent = "Start AcoustiSophy";
+                    startBtn.style.backgroundColor = "#d4af37";
                 }
-            } catch (error) { console.error("GASデータ取得失敗:", error); }
+            } catch (error) { 
+                console.error("GASデータ取得失敗:", error); 
+                startBtn.textContent = "Start (Offline Mode)";
+            }
         }
 
-        startBtn.onclick = async () => {
-            try {
-                await Tone.start();
-                console.log("Audio Context Started");
-
-                // ★修正：最も安全な初期化方法（引数を空にする）
-                // これにより、Monophonic classエラーを回避します
-                synth = new Tone.PolySynth().toDestination();
-                synth.set({
-                    oscillator: { type: "triangle" },
-                    envelope: { attack: 0.03, decay: 1, sustain: 0.2, release: 1 }
-                });
-                synth.volume.value = -6;
-
-                initSongSelector();
-                const titles = Object.keys(songDatabase);
-                loadSong(titles[0]);
-
-            } catch (e) {
-                console.error("Boot Error:", e);
-            } finally {
-                // 何が起きても必ず画面を出す
-                startOverlay.style.opacity = '0';
-                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
-            }
-        };
-
-        keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
-
-        function initSongSelector() {
-            songSelector.innerHTML = "";
-            for (const songTitle in songDatabase) {
-                const option = document.createElement('option');
-                option.value = songTitle;
-                option.textContent = songTitle;
-                songSelector.appendChild(option);
-            }
-            songSelector.onchange = (e) => loadSong(e.target.value);
-        }
-
+        // ★ loadSong 関数内の歌詞表示部分を以下に修正
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
             if (!songData) return;
-            lyricDisplay.textContent = songData.lyrics;
+            
+            // スプレッドシートの \n を実際の改行に変換して表示
+            lyricDisplay.textContent = songData.lyrics.replace(/\\n/g, '\n');
+            
             chordArea.innerHTML = ""; 
             songData.chords.forEach((chord, index) => {
                 const btn = document.createElement('div');
@@ -135,10 +110,6 @@
             });
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
-
-        strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
-
-        fetchSongData();
     </script>
 </body>
 </html>
