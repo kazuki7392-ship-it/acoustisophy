@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.8 Final Admin</title>
+    <title>AcoustiSophy - v6.9 Pure Lyrics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -310,15 +310,27 @@
             alert(`${foundUniqueChords.size} 個のコードを抽出しました！`);
         };
 
-        // 究極のテキストクリーニング実装
+        // ★★★ 究極のテキスト浄化処理（コードのみの行を完全抹消） ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
+            
             let cleanedLyrics = rawLyrics
                 .split('\n')
-                .map(line => line.trim()) 
+                .map(line => line.trim()) // 各行の前後のゴミスペースを消す
+                .filter(line => {
+                    if (line === "") return true; // 空行は段落のために残す
+                    
+                    // その行の単語をすべてチェック
+                    let tokens = line.split(/[\s\t　]+/);
+                    // 「行の中のすべての単語」がコード辞書に載っているか判定
+                    let allTokensAreChords = tokens.every(token => masterChordDictionary[token]);
+                    
+                    // もし「すべてコード」なら、その行は削除（falseを返す）
+                    return !allTokensAreChords; 
+                })
                 .join('\n')
-                .replace(/\n{3,}/g, '\n\n') 
+                .replace(/\n{3,}/g, '\n\n') // 無駄な連続改行を圧縮
                 .trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
