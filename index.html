@@ -48,63 +48,57 @@
     </div>
 
     <script>
-    // ★最新の GAS URL に貼り直してください！
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyfdlnUcZAZRYSzCuvn8YYEr8SqYGGr6uofG_tl_9S-MtoGqB0xsgrnYeXcR3cCzXXD/exec";
+  // ★ここに「/exec」で終わる正しいURLを貼り直してください！
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec";
 
-    
-// ★予備データ：通信失敗時でも「絶対に」これを表示させる
 let songDatabase = {
-    "【Offline】上を向いて歩こう": {
+    "【予備】上を向いて歩こう": {
         chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
-        lyrics: "※現在オフラインです。GASの設定を確認してください。\nG  Em  C  D\n上を向いて歩こう..."
+        lyrics: "GAS通信エラー時用の予備データです。\nG  Em  C  D\n上を向いて歩こう..."
     }
 };
 
 async function fetchSongData() {
     try {
-        // 10秒でタイムアウトさせる設定
+        // 通信タイムアウト設定
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(GAS_URL, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) throw new Error("Network Error");
-
+        if (!response.ok) throw new Error("CORS or Network Error");
+        
         const data = await response.json();
         if (data && Object.keys(data).length > 0) {
-            songDatabase = data; // 成功時のみ上書き
+            songDatabase = data;
             startBtn.textContent = "Start AcoustiSophy";
             startBtn.style.backgroundColor = "#d4af37";
-            console.log("Cloud Sync Success!");
+            console.log("Cloud Sync: Success");
         }
     } catch (error) {
-        console.error("Connection Failed:", error);
+        console.error("GAS通信失敗:", error);
         startBtn.textContent = "Start (Offline Mode)";
-        startBtn.style.backgroundColor = "#666"; // 失敗時はグレーにする
+        startBtn.style.backgroundColor = "#666";
     }
 }
 
-// 起動ボタン：何が起きても「絶対に」画面を出す
 startBtn.onclick = async () => {
     try {
         await Tone.start();
-        // 失敗に備えて PolySynth(Synth) をデフォルトにする
-        synth = new Tone.PolySynth(Tone.Synth).toDestination();
         
-        // 曲データの初期化
+        // ★エラー回避版：PolySynthの初期化を最も安全な方法に変更
+        synth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: "triangle" }, // アコギに近い柔らかい波形
+            envelope: { attack: 0.02, decay: 1, sustain: 0.2, release: 1 }
+        }).toDestination();
+        
         initSongSelector();
         const titles = Object.keys(songDatabase);
-        if (titles.length > 0) {
-            loadSong(titles[0]);
-        } else {
-            alert("データが完全に空です。シートを確認してください。");
-        }
+        loadSong(titles[0]);
 
     } catch (e) {
-        console.error("Critical Boot Error:", e);
+        console.error("起動プロセスで事故:", e);
     } finally {
-        // ★たとえエラーでも、黒い幕（オーバーレイ）を強制除去！
+        // ★どんなエラーが起きても強制的に画面を表示！
         startOverlay.style.opacity = '0';
         setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
     }
