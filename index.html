@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.6 Editable</title>
+    <title>AcoustiSophy - v6.7 Clean Lyrics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -17,9 +17,12 @@
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
         #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
         
+        /* ★ 修正：歌詞の視認性アップ（大きく、見やすく） */
         #lyric-display { 
-            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 14px; line-height: 1.8; 
-            white-space: pre-wrap; padding: 10px; background: #1a1a1a; border-radius: 8px;
+            flex-grow: 1; overflow-y: auto; color: #eee; 
+            font-size: 16px; /* 少し大きくしました */
+            line-height: 2.0; /* 行間を広げて見やすくしました */
+            white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px;
             font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
         }
         
@@ -55,10 +58,9 @@
     </div>
 
     <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
-        
         <select id="admin-mode-selector" style="width: 100%; padding: 12px; margin-bottom: 20px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 5px; font-size: 16px;">
             <option value="">✨ 新規作成 (Create New Song)</option>
-            </select>
+        </select>
 
         <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集モード中は曲名変更不可)</span>:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
@@ -217,9 +219,6 @@
 
         keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); };
 
-        // ==========================================
-        // 管理画面（編集機能・Upsert対応版）
-        // ==========================================
         const adminPanel = document.getElementById('admin-panel');
         const adminModeSelector = document.getElementById('admin-mode-selector');
         const titleInput = document.getElementById('new-title');
@@ -244,9 +243,7 @@
         const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
         const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" } ];
 
-        // ★ 管理画面を開くときの処理
         document.getElementById('open-admin').onclick = () => {
-            // モードセレクターの選択肢を最新にする
             adminModeSelector.innerHTML = '<option value="">✨ 新規作成 (Create New Song)</option>';
             for (const title in songDatabase) {
                 const opt = document.createElement('option');
@@ -258,39 +255,20 @@
 
         document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
 
-        // ★ モード切り替え（新規作成 ⇔ 編集）のロジック
         adminModeSelector.onchange = (e) => {
             const selectedTitle = e.target.value;
             chordContainer.innerHTML = ''; 
-
             if (!selectedTitle) {
-                // 新規作成モード
-                titleInput.value = '';
-                lyricsInput.value = '';
-                titleInput.readOnly = false;
-                titleInput.style.opacity = '1';
-                titleLockHint.style.display = 'none';
+                titleInput.value = ''; lyricsInput.value = ''; titleInput.readOnly = false; titleInput.style.opacity = '1'; titleLockHint.style.display = 'none';
             } else {
-                // 編集モード：既存のデータをフォームに復元する
                 const song = songDatabase[selectedTitle];
-                titleInput.value = selectedTitle;
-                titleInput.readOnly = true; // 曲名変更による無限増殖バグを防止
-                titleInput.style.opacity = '0.6';
-                titleLockHint.style.display = 'inline';
-                
-                lyricsInput.value = song.lyrics; // 改行もそのまま復元
-
-                // JSONのコード進行からデュアル・ドラムロールを逆生成する
+                titleInput.value = selectedTitle; titleInput.readOnly = true; titleInput.style.opacity = '0.6'; titleLockHint.style.display = 'inline';
+                lyricsInput.value = song.lyrics; 
                 song.chords.forEach(chord => {
-                    let root = "";
-                    let quality = "";
+                    let root = ""; let quality = "";
                     if (chord.name.length > 1 && (chord.name[1] === '#' || chord.name[1] === 'b')) {
-                        root = chord.name.substring(0, 2);
-                        quality = chord.name.substring(2);
-                    } else {
-                        root = chord.name.substring(0, 1);
-                        quality = chord.name.substring(1);
-                    }
+                        root = chord.name.substring(0, 2); quality = chord.name.substring(2);
+                    } else { root = chord.name.substring(0, 1); quality = chord.name.substring(1); }
                     createChordDropdown(root, quality);
                 });
             }
@@ -300,36 +278,20 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'chord-group';
             wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
-
             const rootSelect = document.createElement('select');
             rootSelect.className = 'root-select';
             rootSelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none; border-right: 1px solid rgba(0,0,0,0.2);";
-            rootOptions.forEach(root => {
-                const opt = document.createElement('option');
-                opt.value = root; opt.textContent = root;
-                if(root === defaultRoot) opt.selected = true;
-                rootSelect.appendChild(opt);
-            });
-
+            rootOptions.forEach(root => { const opt = document.createElement('option'); opt.value = root; opt.textContent = root; if(root === defaultRoot) opt.selected = true; rootSelect.appendChild(opt); });
             const qualitySelect = document.createElement('select');
             qualitySelect.className = 'quality-select';
             qualitySelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
-            qualityOptions.forEach(q => {
-                const opt = document.createElement('option');
-                opt.value = q.value; opt.textContent = q.label;
-                if(q.value === defaultQuality) opt.selected = true;
-                qualitySelect.appendChild(opt);
-            });
-
-            wrapper.appendChild(rootSelect);
-            wrapper.appendChild(qualitySelect);
-            chordContainer.appendChild(wrapper);
+            qualityOptions.forEach(q => { const opt = document.createElement('option'); opt.value = q.value; opt.textContent = q.label; if(q.value === defaultQuality) opt.selected = true; qualitySelect.appendChild(opt); });
+            wrapper.appendChild(rootSelect); wrapper.appendChild(qualitySelect); chordContainer.appendChild(wrapper);
         }
 
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
-        // 自動抽出
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value;
             if (!text) return alert("テキストを貼り付けてください！");
@@ -348,11 +310,19 @@
             alert(`${foundUniqueChords.size} 個のコードを抽出しました！`);
         };
 
-        // GASへの送信（新規追加 ＆ 編集の両方に対応）
+        // ★★★ 究極のテキストクリーニング実装 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
-            // 不要な改行を圧縮
-            const lyrics = lyricsInput.value.replace(/\n{3,}/g, '\n\n').trim();
+            
+            // 1. 各行の前後のスペースを完全削除 (trim)
+            // 2. 複数の改行（間にスペースが含まれる場合も）を圧縮して、最大でも「1行空き」に調整
+            let rawLyrics = lyricsInput.value;
+            let cleanedLyrics = rawLyrics
+                .split('\n')
+                .map(line => line.trim()) // ゴーストスペースの破壊
+                .join('\n')
+                .replace(/\n{3,}/g, '\n\n') // 無駄な連続改行の圧縮
+                .trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
             let hasError = false, errorChordName = "";
@@ -362,7 +332,7 @@
                 return { name: combinedName, notes: masterChordDictionary[combinedName] || "C4,E4,G4" };
             });
 
-            if (!title || !lyrics) return alert("曲名と歌詞は必須です！");
+            if (!title || !cleanedLyrics) return alert("曲名と歌詞は必須です！");
             if (chordsArray.length === 0) return alert("コードを最低1つは追加してください！");
             if (hasError) return alert(`「${errorChordName}」は未対応です！変更してください。`);
 
@@ -371,7 +341,7 @@
             try {
                 const response = await fetch(GAS_URL, {
                     method: "POST",
-                    body: JSON.stringify({ title: title, lyrics: lyrics, chords: JSON.stringify(chordsArray) })
+                    body: JSON.stringify({ title: title, lyrics: cleanedLyrics, chords: JSON.stringify(chordsArray) })
                 });
                 const result = await response.json();
                 if (result.status === "success") {
