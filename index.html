@@ -198,30 +198,73 @@
         keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
         strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
 
-        // ==========================================
-        // 管理画面（Admin Panel）のロジック
+       // ==========================================
+        // 管理画面（Admin Panel）のロジック：デュアル・ドラムロール版
         // ==========================================
         const adminPanel = document.getElementById('admin-panel');
         document.getElementById('open-admin').onclick = () => adminPanel.style.display = 'block';
         document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
 
-        // コード辞書
-        const chordDictionary = {
-            "G": "G3,B3,D4", "Em": "E3,G3,B3", "C": "C4,E4,G4", "D": "D4,F#4,A4", "Am": "A3,C4,E4", "F": "F3,A3,C4"
+        // ★1. 超・拡張版マスターコード辞書（裏側で合体した文字をここで判定します）
+        const masterChordDictionary = {
+            "C": "C4,E4,G4", "Cm": "C4,Eb4,G4", "C7": "C4,E4,G4,Bb4", "Cm7": "C4,Eb4,G4,Bb4", "Csus4": "C4,F4,G4",
+            "C#": "C#4,F4,G#4", "C#m": "C#4,E4,G#4", "C#7": "C#4,F4,G#4,B4", "C#m7": "C#4,E4,G#4,B4",
+            "D": "D4,F#4,A4", "Dm": "D4,F4,A4", "D7": "D4,F#4,A4,C5", "Dm7": "D4,F4,A4,C5", "Dsus4": "D4,G4,A4",
+            "Eb": "Eb4,G4,Bb4", "Ebm": "Eb4,Gb4,Bb4", "Eb7": "Eb4,G4,Bb4,Db5",
+            "E": "E3,G#3,B3", "Em": "E3,G3,B3", "E7": "E3,G#3,B3,D4", "Em7": "E3,G3,B3,D4", "Esus4": "E3,A3,B3",
+            "F": "F3,A3,C4", "Fm": "F3,Ab3,C4", "F7": "F3,A3,C4,Eb4", "Fm7": "F3,Ab3,C4,Eb4",
+            "F#": "F#3,A#3,C#4", "F#m": "F#3,A3,C#4", "F#7": "F#3,A#3,C#4,E4", "F#m7": "F#3,A3,C#4,E4",
+            "G": "G3,B3,D4", "Gm": "G3,Bb3,D4", "G7": "G3,B3,D4,F4", "Gm7": "G3,Bb3,D4,F4", "Gsus4": "G3,C4,D4",
+            "Ab": "Ab3,C4,Eb4", "Abm": "Ab3,Cb4,Eb4", "Ab7": "Ab3,C4,Eb4,Gb4",
+            "A": "A3,C#4,E4", "Am": "A3,C4,E4", "A7": "A3,C#4,E4,G4", "Am7": "A3,C4,E4,G4", "Asus4": "A3,D4,E4",
+            "Bb": "Bb3,D4,F4", "Bbm": "Bb3,Db4,F4", "Bb7": "Bb3,D4,F4,Ab4",
+            "B": "B3,D#4,F#4", "Bm": "B3,D4,F#4", "B7": "B3,D#4,F#4,A4", "Bm7": "B3,D4,F#4,A4"
         };
+
+        // ★2. UIに表示する選択肢（ルートと種類）
+        const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+        const qualityOptions = [
+            { label: "Major (なし)", value: "" },
+            { label: "minor (m)", value: "m" },
+            { label: "7th (7)", value: "7" },
+            { label: "minor 7th (m7)", value: "m7" },
+            { label: "sus4", value: "sus4" }
+        ];
+
         const chordContainer = document.getElementById('chord-dropdown-container');
 
-        // コード追加ボタン
+        // ★3. 「+ コードを追加」ボタンの処理（カプセル型の2連ドラムロールを生成）
         document.getElementById('add-chord-btn').onclick = () => {
-            const select = document.createElement('select');
-            select.className = 'chord-select';
-            select.style.cssText = "padding: 8px; font-size: 16px; background: #d4af37; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;";
-            for (const chordName in chordDictionary) {
-                const option = document.createElement('option');
-                option.value = chordName; option.textContent = chordName;
-                select.appendChild(option);
-            }
-            chordContainer.appendChild(select);
+            // 2つのセレクトを包む外枠（ジョブズの美学：カプセル型デザイン）
+            const wrapper = document.createElement('div');
+            wrapper.className = 'chord-group';
+            wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
+
+            // 左側：ルート音のドラムロール
+            const rootSelect = document.createElement('select');
+            rootSelect.className = 'root-select';
+            rootSelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none; border-right: 1px solid rgba(0,0,0,0.2);";
+            rootOptions.forEach(root => {
+                const opt = document.createElement('option');
+                opt.value = root; opt.textContent = root;
+                // 最初はCを選択状態にしておく
+                if(root === "C") opt.selected = true;
+                rootSelect.appendChild(opt);
+            });
+
+            // 右側：種類のドラムロール
+            const qualitySelect = document.createElement('select');
+            qualitySelect.className = 'quality-select';
+            qualitySelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
+            qualityOptions.forEach(q => {
+                const opt = document.createElement('option');
+                opt.value = q.value; opt.textContent = q.label;
+                qualitySelect.appendChild(opt);
+            });
+
+            wrapper.appendChild(rootSelect);
+            wrapper.appendChild(qualitySelect);
+            chordContainer.appendChild(wrapper);
         };
 
         // 一個消すボタン
@@ -229,18 +272,39 @@
             if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild);
         };
 
-        // GASへの送信
+        // ★4. GASへの送信（ここで A と m を合体させて検証する）
         document.getElementById('submit-song').onclick = async () => {
             const title = document.getElementById('new-title').value;
             const lyrics = document.getElementById('new-lyrics').value;
             
-            const selectElements = document.querySelectorAll('.chord-select');
-            const chordsArray = Array.from(selectElements).map(select => {
-                return { name: select.value, notes: chordDictionary[select.value] };
+            const chordGroups = document.querySelectorAll('.chord-group');
+            let hasError = false;
+            let errorChordName = "";
+
+            const chordsArray = Array.from(chordGroups).map(group => {
+                const root = group.querySelector('.root-select').value;
+                const quality = group.querySelector('.quality-select').value;
+                const combinedName = root + quality; // 例: "A" + "m" = "Am"
+
+                // マスター辞書にその組み合わせが存在するかチェック（一護の安全装置）
+                if (!masterChordDictionary[combinedName]) {
+                    hasError = true;
+                    errorChordName = combinedName;
+                }
+
+                return { 
+                    name: combinedName, 
+                    notes: masterChordDictionary[combinedName] || "C4,E4,G4" // エラー時はCメジャーで保護
+                };
             });
 
             if (!title || !lyrics) return alert("曲名と歌詞は必須です！");
             if (chordsArray.length === 0) return alert("コードを最低1つは追加してください！");
+            
+            // 未対応の変な組み合わせ（Abのsus4など）が選ばれたら警告して止める
+            if (hasError) {
+                return alert(`「${errorChordName}」の組み合わせは現在未対応です！別のコードに変更してください。`);
+            }
 
             document.getElementById('submit-song').textContent = "Uploading...";
 
