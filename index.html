@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v4.3 Bulletproof</title>
+    <title>AcoustiSophy - v5.0 GAS</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -27,7 +27,7 @@
 <body>
 
     <div id="start-overlay">
-        <button id="start-btn">Start AcoustiSophy</button>
+        <button id="start-btn">Connect to Cloud...</button>
     </div>
 
     <div id="guide-area">
@@ -48,22 +48,14 @@
     </div>
 
     <script>
-        const songDatabase = {
-            "上を向いて歩こう": {
-                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
-                lyrics: `G    Em    C    D\n上を向いて歩こう\nG    Em    C    D\n涙がこぼれないように`
-            },
-            "Stand By Me": {
-                chords: [{ name: "A", notes: "A3,C#4,E4" }, { name: "F#m", notes: "F#3,A3,C#4" }, { name: "D", notes: "D4,F#4,A4" }, { name: "E", notes: "E3,G#3,B3" }],
-                lyrics: `A\nWhen the night has come\nF#m\nAnd the land is dark`
-            }
-        };
+        // ★ここにGASのWebアプリURLを貼り付けてください！
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbylmULjc76dCc72wtJlWamCtkoVroVFLz6Ba6cowE2PmjeXTevxcU3XWt8vOt-4xwo5/exec";
 
+        let songDatabase = {}; // GASから取得したデータが入る
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
 
-        // 要素の取得
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const songSelector = document.getElementById('song-selector');
@@ -72,57 +64,50 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        // 音を鳴らすメイン関数
         function playChord() {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
             currentNotes.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    // ギター風のストローク（0.03秒ずらす）
                     synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.warn("発音エラー:", e); }
+                } catch(e) { console.warn(e); }
             });
         }
 
-        // ★最強の起動ロジック
+        // ページ読み込み時にGASからデータを取得
+        async function fetchSongData() {
+            try {
+                const response = await fetch(GAS_URL);
+                songDatabase = await response.json();
+                console.log("Database Loaded:", songDatabase);
+                
+                // データの準備ができたらボタンを「Start」に変える
+                startBtn.textContent = "Start AcoustiSophy";
+                startBtn.style.backgroundColor = "#d4af37";
+            } catch (error) {
+                console.error("GASデータ取得エラー:", error);
+                startBtn.textContent = "Offline Mode (Click to Start)";
+            }
+        }
+
+        // 起動時
         startBtn.addEventListener('click', async () => {
             try {
-                // 1. Tone.jsのチェック
-                if (typeof Tone === 'undefined') throw new Error("Tone.jsが読み込まれていません");
-
-                // 2. 音声コンテキストの開始
                 await Tone.start();
-                console.log("Audio Context Started");
+                synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+                synth.volume.value = 4;
 
-                // 3. 楽器の生成（安全装置付き）
-                try {
-                    // まずは「弦の音」を試す
-                    synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
-                    console.log("PluckSynth Ready");
-                } catch (e) {
-                    console.warn("PluckSynth失敗。通常シンセに切り替えます。", e);
-                    // 失敗したら普通のシンセに切り替え（フォールバック）
-                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
-                }
-                synth.volume.value = 2;
-
-                // 4. UIの初期化
                 initSongSelector();
                 const songTitles = Object.keys(songDatabase);
                 if (songTitles.length > 0) {
                     loadSong(songTitles[0]);
                 }
 
-                // 5. 成功したら画面を消す
                 startOverlay.style.opacity = '0';
                 setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
-
             } catch (error) {
-                console.error("致命的な起動エラー:", error);
-                // エラーが起きても、とりあえず画面だけは消して使えるようにする
                 startOverlay.style.display = 'none';
-                alert("一部の機能に制限がありますが、起動しました。");
             }
         });
 
@@ -132,7 +117,6 @@
         };
 
         function initSongSelector() {
-            if (!songSelector) return;
             songSelector.innerHTML = "";
             for (const songTitle in songDatabase) {
                 const option = document.createElement('option');
@@ -157,11 +141,8 @@
                 btn.onpointerdown = (e) => {
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
-                    const notes = e.target.getAttribute('data-notes');
-                    if (notes) {
-                        currentNotes = notes.split(',');
-                        playChord();
-                    }
+                    currentNotes = e.target.getAttribute('data-notes').split(',');
+                    playChord();
                 };
                 chordArea.appendChild(btn);
             });
@@ -175,6 +156,9 @@
             strumArea.classList.add('strum-flash');
             setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
         };
+
+        // 最初にデータを読み込み開始
+        fetchSongData();
     </script>
 </body>
 </html>
