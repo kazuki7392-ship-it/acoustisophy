@@ -228,25 +228,35 @@
             });
         }
 
-        // === 3. 起動 ===
+        // === 3. 起動（修正版） ===
         startBtn.addEventListener('click', async () => {
-            await Tone.start();
-            
-            // ★ここを大改造！「Tone.Synth」から「Tone.PluckSynth（弦のシミュレーション）」へ！
-            synth = new Tone.PolySynth(Tone.PluckSynth, {
-                attackNoise: 1.5, // ピックが弦に当たる「ジャリッ」というノイズ感
-                dampening: 4000,  // 音のこもり具合（アコギの木のボディ感を出す）
-                resonance: 0.9    // 弦の余韻（サステイン）の長さ
-            }).toDestination();
-            
-            // PluckSynthは計算上、音が少し小さめになるのでボリュームを上げる
-            synth.volume.value = 4;
+            try {
+                // ブラウザの音声制限を解除
+                await Tone.start();
+                console.log("Audio Context Started");
 
-            initSongSelector();
-            loadSong(Object.keys(songDatabase)[0]); 
+                // ★極限までシンプルにした PluckSynth（弦のシミュレーション）
+                // 複雑な設定値を一旦消して、デフォルト設定で確実に起動させます
+                synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+                
+                // 音量を少しだけ補正
+                synth.volume.value = 0;
 
-            startOverlay.style.opacity = '0';
-            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+                // 初期化処理
+                initSongSelector();
+                loadSong(Object.keys(songDatabase)[0]); 
+
+                // 画面を消す処理（エラーがあるとここまで届かないので、確実に実行させる）
+                startOverlay.style.opacity = '0';
+                setTimeout(() => { 
+                    startOverlay.style.display = 'none'; 
+                }, 500);
+
+            } catch (error) {
+                // 万が一エラーが出た場合、コンソールに表示する
+                console.error("起動エラー:", error);
+                alert("起動に失敗しました。もう一度お試しください。");
+            }
         });
 
         // === 4. キー変更イベント ===
