@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v5.4 Stable</title>
+    <title>AcoustiSophy - v5.6 Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        /* スタイルは変更なし（前回のままでOK） */
+        /* デザイン部分は変更なし：完成されています */
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
@@ -26,16 +26,26 @@
     </style>
 </head>
 <body>
-    <div id="start-overlay"><button id="start-btn">Start AcoustiSophy</button></div>
-    <div id="guide-area"><div id="controls"><select id="song-selector"></select><select id="key-selector">
-        <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option><option value="0" selected>±0</option>
-        <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option></select></div>
+    <div id="start-overlay"><button id="start-btn">Connecting to Cloud...</button></div>
+    <div id="guide-area">
+        <div id="controls">
+            <select id="song-selector"></select>
+            <select id="key-selector">
+                <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
+                <option value="0" selected>±0</option>
+                <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
+            </select>
+        </div>
         <div id="lyric-display"></div>
     </div>
-    <div id="app-container"><div id="chord-area"></div><div id="strum-area"><div id="strum-text">Tap to Strum</div></div></div>
+    <div id="app-container">
+        <div id="chord-area"></div>
+        <div id="strum-area"><div id="strum-text">Tap to Strum</div></div>
+    </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec";
+        // ★ここに /exec で終わる正しいURLを貼り付けてください
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec"; 
 
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
@@ -45,52 +55,70 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading..." } };
+        // 初期データ（バックアップ用）
+        let songDatabase = { 
+            "上を向いて歩こう": { 
+                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }], 
+                lyrics: "Loading data from Google Sheets..." 
+            } 
+        };
+        
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
 
-        function playChord() {
-            if (!synth || currentNotes.length === 0) return;
-            const now = Tone.now();
-            currentNotes.forEach((note, index) => {
-                try {
-                    const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    // PolySynthが正しく作成されていれば、ここで音が鳴ります
-                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.warn("Play error:", e); }
-            });
-        }
-
+        // 1. GASから曲データを取得する（自動更新機能付き）
         async function fetchSongData() {
-            console.log("GAS通信開始...");
             try {
                 const response = await fetch(GAS_URL);
                 const data = await response.json();
                 if (data && Object.keys(data).length > 0) {
                     songDatabase = data;
-                    console.log("Database Loaded:", songDatabase);
-                    
-                    // ★重要：データが届いたら、既に画面が開いていても「再描画」する
+                    console.log("Cloud Data Loaded!");
+
+                    // ★重要：データが届いたら、即座に画面（セレクトボックスと曲）を更新する
                     initSongSelector();
-                    const currentSong = songSelector.value || Object.keys(songDatabase)[0];
-                    loadSong(currentSong);
+                    loadSong(Object.keys(songDatabase)[0]);
 
                     startBtn.textContent = "Start AcoustiSophy";
                     startBtn.style.backgroundColor = "#d4af37";
+                    startBtn.style.color = "#1a1a1a";
                 }
-            } catch (error) { 
-                console.error("GASデータ取得失敗:", error); 
+            } catch (error) {
+                console.error("Cloud Sync Failed:", error);
                 startBtn.textContent = "Start (Offline Mode)";
             }
         }
 
-        // ★ loadSong 関数内の歌詞表示部分を以下に修正
+        // 2. 起動ボタン
+        startBtn.onclick = async () => {
+            try {
+                await Tone.start();
+                // 最も安定したシンセ音の作り方
+                synth = new Tone.PolySynth().toDestination();
+                synth.set({
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 }
+                });
+
+                initSongSelector();
+                loadSong(songSelector.value || Object.keys(songDatabase)[0]);
+
+            } catch (e) {
+                console.error("Boot Error:", e);
+            } finally {
+                // 何があっても黒い幕を消す
+                startOverlay.style.opacity = '0';
+                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+            }
+        };
+
+        // 3. 曲の読み込みと表示
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
             if (!songData) return;
-            
-            // スプレッドシートの \n を実際の改行に変換して表示
+
+            // スプレッドシートの \n を実際の改行に変換
             lyricDisplay.textContent = songData.lyrics.replace(/\\n/g, '\n');
             
             chordArea.innerHTML = ""; 
@@ -110,6 +138,36 @@
             });
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
+
+        // 4. 音を鳴らす（ストローク効果）
+        function playChord() {
+            if (!synth || currentNotes.length === 0) return;
+            const now = Tone.now();
+            currentNotes.forEach((note, index) => {
+                try {
+                    const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
+                } catch(e) { console.warn(e); }
+            });
+        }
+
+        function initSongSelector() {
+            const currentVal = songSelector.value;
+            songSelector.innerHTML = "";
+            for (const title in songDatabase) {
+                const opt = document.createElement('option');
+                opt.value = title; opt.textContent = title;
+                songSelector.appendChild(opt);
+            }
+            if (currentVal) songSelector.value = currentVal;
+            songSelector.onchange = (e) => loadSong(e.target.value);
+        }
+
+        keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
+        strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
+
+        // 実行
+        fetchSongData();
     </script>
 </body>
 </html>
