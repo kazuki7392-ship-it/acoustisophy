@@ -52,9 +52,15 @@
     <label>Lyrics (Use \n for line breaks):</label>
     <textarea id="new-lyrics" rows="5" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;"></textarea>
     
-    <label>Chords (JSON Format):</label>
-    <textarea id="new-chords" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">[{"name":"G","notes":"G3,B3,D4"},{"name":"Em","notes":"E3,G3,B3"},{"name":"C","notes":"C4,E4,G4"},{"name":"D","notes":"D4,F#4,A4"}]</textarea>
+    <label>Chords (コードを順番に追加):</label>
+    <!-- ドラムロールが並ぶ場所 -->
+    <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
     
+    <!-- 追加・削除ボタン -->
+    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ コードを追加</button>
+        <button type="button" id="remove-chord-btn" style="padding: 10px; background: #444; color: #ff6b6b; border: 1px solid #444; border-radius: 5px; cursor: pointer;">一個消す</button>
+    </div>
     <button id="submit-song" style="width: 100%; padding: 15px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 10px;">Upload to Cloud</button>
     <button id="close-admin" style="width: 100%; padding: 10px; background: #444; color: #fff; border: none; border-radius: 10px;">Cancel</button>
 </div>
@@ -206,37 +212,90 @@
         keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
         strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
 
-        // 管理画面の開閉ロジック
+       // ==========================================
+// 管理画面（Admin Panel）のロジック
+// ==========================================
 const adminPanel = document.getElementById('admin-panel');
 document.getElementById('open-admin').onclick = () => adminPanel.style.display = 'block';
 document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
+
+// ★ 事前定義されたコード辞書（ここに登録したものがドラムロールに出ます）
+const chordDictionary = {
+    "G": "G3,B3,D4",
+    "Em": "E3,G3,B3",
+    "C": "C4,E4,G4",
+    "D": "D4,F#4,A4",
+    "Am": "A3,C4,E4",
+    "F": "F3,A3,C4"
+};
+
+const chordContainer = document.getElementById('chord-dropdown-container');
+
+// 「+ コードを追加」ボタンの処理
+document.getElementById('add-chord-btn').onclick = () => {
+    const select = document.createElement('select');
+    select.className = 'chord-select';
+    select.style.cssText = "padding: 8px; font-size: 16px; background: #d4af37; color: #1a1a1a; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;";
+    
+    // 辞書から選択肢を作る
+    for (const chordName in chordDictionary) {
+        const option = document.createElement('option');
+        option.value = chordName;
+        option.textContent = chordName;
+        select.appendChild(option);
+    }
+    chordContainer.appendChild(select);
+};
+
+// 「一個消す」ボタンの処理
+document.getElementById('remove-chord-btn').onclick = () => {
+    if (chordContainer.lastChild) {
+        chordContainer.removeChild(chordContainer.lastChild);
+    }
+};
 
 // GASへの送信処理
 document.getElementById('submit-song').onclick = async () => {
     const title = document.getElementById('new-title').value;
     const lyrics = document.getElementById('new-lyrics').value;
-    const chords = document.getElementById('new-chords').value;
+    
+    // ★ ドラムロールから選ばれたコードを集めて、自動でJSONに変換する！
+    const selectElements = document.querySelectorAll('.chord-select');
+    const chordsArray = Array.from(selectElements).map(select => {
+        const chordName = select.value;
+        return {
+            name: chordName,
+            notes: chordDictionary[chordName] // 辞書から音階を自動で引っ張ってくる
+        };
+    });
 
-    if (!title || !lyrics) return alert("Title and Lyrics are required!");
+    const chordsJSON = JSON.stringify(chordsArray);
+
+    if (!title || !lyrics) return alert("曲名と歌詞は必須です！");
+    if (chordsArray.length === 0) return alert("コードを最低1つは追加してください！");
 
     document.getElementById('submit-song').textContent = "Uploading...";
 
     try {
         const response = await fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify({ title, lyrics, chords })
+            body: JSON.stringify({ title: title, lyrics: lyrics, chords: chordsJSON })
         });
         
         const result = await response.json();
         if (result.status === "success") {
-            alert("Success! Song added to Cloud.");
+            alert("クラウドへの登録が完了しました！");
             adminPanel.style.display = 'none';
-            location.reload(); // ページをリロードして最新データを取得
+            // 入力欄をリセット
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-lyrics').value = '';
+            chordContainer.innerHTML = ''; 
+            location.reload(); 
         } else {
             throw new Error(result.message);
         }
     } catch (error) {
-        alert("Upload Failed: " + error);
+        alert("エラーが発生しました: " + error);
         document.getElementById('submit-song').textContent = "Upload to Cloud";
     }
 };
