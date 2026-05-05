@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v2.0</title>
+    <title>AcoustiSophy - v3.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * {
@@ -23,10 +23,10 @@
             height: 100vh;
             overflow: hidden;
             display: flex;
-            flex-direction: column; /* 縦並びに変更 */
+            flex-direction: column;
         }
 
-        /* 起動前のロック画面 */
+        /* 起動画面 */
         #start-overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -50,9 +50,9 @@
             box-shadow: 0 4px 20px rgba(212, 175, 55, 0.5);
         }
 
-        /* === 上部：ガイドエリア（曲選択 ＆ 歌詞表示） === */
+        /* === ガイドエリア（コントロールパネル） === */
         #guide-area {
-            height: 35%; /* 画面の約1/3を使用 */
+            height: 40%;
             background-color: #222;
             border-bottom: 2px solid #d4af37;
             display: flex;
@@ -60,39 +60,44 @@
             padding: 10px;
         }
 
-        #song-selector {
-            width: 100%;
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #song-selector, #key-selector {
             padding: 10px;
-            font-size: 18px;
+            font-size: 16px;
             background-color: #333;
             color: #fff;
             border: 1px solid #555;
             border-radius: 8px;
-            margin-bottom: 10px;
             outline: none;
         }
 
+        #song-selector { flex-grow: 1; }
+        #key-selector { width: 100px; }
+
         #lyric-display {
             flex-grow: 1;
-            overflow-y: auto; /* 歌詞が長い場合はここだけスクロール可能 */
+            overflow-y: auto;
             color: #eee;
             font-size: 16px;
             line-height: 1.6;
-            white-space: pre-wrap; /* 改行やスペースをそのまま表示 */
+            white-space: pre-wrap;
             padding: 5px;
-            /* 歌詞エリアは文字選択できるようにする（スクロール操作のため） */
             user-select: auto; 
             touch-action: auto;
         }
 
-        /* === 下部：楽器本体（左手と右手） === */
+        /* === 楽器本体 === */
         #app-container {
             display: flex;
-            height: 65%; /* 残りの画面を使用 */
+            height: 60%;
             width: 100%;
         }
 
-        /* 左側：コード選択エリア */
         #chord-area {
             width: 50%;
             display: grid;
@@ -125,7 +130,6 @@
             border-color: #fff;
         }
 
-        /* 右側：ストロークエリア */
         #strum-area {
             width: 50%;
             background: linear-gradient(135deg, #111, #222);
@@ -136,15 +140,8 @@
             cursor: crosshair;
         }
 
-        #strum-text {
-            color: #666;
-            font-size: 20px;
-            pointer-events: none;
-        }
-        
-        .strum-flash {
-            background: rgba(212, 175, 55, 0.3) !important;
-        }
+        #strum-text { color: #666; font-size: 20px; pointer-events: none; }
+        .strum-flash { background: rgba(212, 175, 55, 0.3) !important; }
     </style>
 </head>
 <body>
@@ -154,21 +151,32 @@
     </div>
 
     <div id="guide-area">
-        <select id="song-selector">
+        <div id="controls">
+            <!-- 曲選択 -->
+            <select id="song-selector"></select>
+            <!-- キー変更（トランスポーズ） -->
+            <select id="key-selector">
+                <option value="3">+3</option>
+                <option value="2">+2</option>
+                <option value="1">+1</option>
+                <option value="0" selected>±0</option>
+                <option value="-1">-1</option>
+                <option value="-2">-2</option>
+                <option value="-3">-3</option>
             </select>
+        </div>
         <div id="lyric-display">ここに歌詞とコードが表示されます</div>
     </div>
 
     <div id="app-container">
         <div id="chord-area"></div>
-
         <div id="strum-area">
             <div id="strum-text">Tap to Strum</div>
         </div>
     </div>
 
     <script>
-        // === 1. データベース（曲のデータ） ===
+        // === 1. データベース ===
         const songDatabase = {
             "上を向いて歩こう": {
                 chords: [
@@ -177,15 +185,7 @@
                     { name: "C", notes: "C4,E4,G4" },
                     { name: "D", notes: "D4,F#4,A4" }
                 ],
-                lyrics: `G        Em       C      D
-上を向いて　歩こう
-G        Em       C      D
-涙がこぼれないように
-
-G        Em       C      D
-思い出す　春の日
-C        D        G
-一人ぽっちの夜`
+                lyrics: `G        Em       C      D\n上を向いて　歩こう\nG        Em       C      D\n涙がこぼれないように\n\nG        Em       C      D\n思い出す　春の日\nC        D        G\n一人ぽっちの夜`
             },
             "Stand By Me": {
                 chords: [
@@ -194,62 +194,72 @@ C        D        G
                     { name: "D", notes: "D4,F#4,A4" },
                     { name: "E", notes: "E3,G#3,B3" }
                 ],
-                lyrics: `A
-When the night has come
-F#m
-And the land is dark
-D              E                  A
-And the moon is the only light we'll see
-
-A
-No I won't be afraid
-F#m
-Oh I won't be afraid
-D              E                  A
-Just as long as you stand, stand by me`
+                lyrics: `A\nWhen the night has come\nF#m\nAnd the land is dark\nD              E                  A\nAnd the moon is the only light we'll see\n\nA\nNo I won't be afraid\nF#m\nOh I won't be afraid\nD              E                  A\nJust as long as you stand, stand by me`
             }
         };
 
-        // === 2. システム変数の準備 ===
         let synth;
         let currentNotes = []; 
+        let currentTranspose = 0; // 現在のキー変更値（初期値は0）
+
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const songSelector = document.getElementById('song-selector');
+        const keySelector = document.getElementById('key-selector');
         const lyricDisplay = document.getElementById('lyric-display');
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
         document.addEventListener('contextmenu', event => event.preventDefault());
 
-        // === 3. 起動の儀式 ===
+        // === 2. ギター風の発音ロジック（ストローク効果＆キー変更） ===
+        function playChord() {
+            if (!synth || currentNotes.length === 0) return;
+            
+            const now = Tone.now();
+            
+            // 和音の各音符に対して処理
+            currentNotes.forEach((note, index) => {
+                // 1. キー変更（Tone.Frequencyを使って半音単位でシフト）
+                const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                
+                // 2. ストローク効果（0.03秒ずつ発音をズラしてギターの「ジャラーン」を再現）
+                synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
+            });
+        }
+
+        // === 3. 起動 ===
         startBtn.addEventListener('click', async () => {
             await Tone.start();
+            // ギターっぽくするために音の立ち上がりと余韻（エンベロープ）を調整
             synth = new Tone.PolySynth(Tone.Synth, {
                 oscillator: { type: "triangle" },
-                envelope: { attack: 0.01, decay: 1.5, sustain: 0, release: 1.5 }
+                envelope: { attack: 0.005, decay: 2.0, sustain: 0.2, release: 2.0 }
             }).toDestination();
-            synth.volume.value = -6;
+            synth.volume.value = -4;
 
-            // 初期化：セレクトボックスに曲を追加し、最初の曲を読み込む
             initSongSelector();
-            loadSong(Object.keys(songDatabase)[0]); // 1曲目をセット
+            loadSong(Object.keys(songDatabase)[0]); 
 
             startOverlay.style.opacity = '0';
             setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
         });
 
-        // === 4. 曲の切り替えロジック ===
+        // === 4. キー変更イベント ===
+        keySelector.addEventListener('change', (e) => {
+            currentTranspose = parseInt(e.target.value);
+            // キーを変えた瞬間に新しいキーで鳴らして確認させる
+            playChord();
+        });
+
+        // === 5. 曲の切り替えロジック ===
         function initSongSelector() {
-            // データベースから曲名を抽出してプルダウンを作成
             for (const songTitle in songDatabase) {
                 const option = document.createElement('option');
                 option.value = songTitle;
                 option.textContent = songTitle;
                 songSelector.appendChild(option);
             }
-
-            // プルダウンを変更した時の処理
             songSelector.addEventListener('change', (e) => {
                 loadSong(e.target.value);
             });
@@ -257,21 +267,16 @@ Just as long as you stand, stand by me`
 
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
-            
-            // 1. 歌詞エリアの更新
             lyricDisplay.textContent = songData.lyrics;
-
-            // 2. 左手コードボタンの再構築
-            chordArea.innerHTML = ""; // 古いボタンを全て消去
+            chordArea.innerHTML = ""; 
             
             songData.chords.forEach((chord, index) => {
                 const btn = document.createElement('div');
                 btn.className = 'chord-btn';
-                if (index === 0) btn.classList.add('active'); // 最初の一つをアクティブに
+                if (index === 0) btn.classList.add('active'); 
                 btn.textContent = chord.name;
                 btn.setAttribute('data-notes', chord.notes);
                 
-                // ボタンを押した時のイベントを付与
                 btn.addEventListener('pointerdown', (e) => {
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
@@ -279,21 +284,17 @@ Just as long as you stand, stand by me`
                     const notesString = e.target.getAttribute('data-notes');
                     currentNotes = notesString.split(',');
                     
-                    if (synth) synth.triggerAttackRelease(currentNotes, "1n");
+                    playChord(); // ★ギター風発音関数を呼び出し
                     if (navigator.vibrate) navigator.vibrate(10);
                 });
-
                 chordArea.appendChild(btn);
             });
-
-            // 3. 読み込み直後は、1番目のコードを現在の音としてセット
             currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // === 5. 右手：ストロークロジック ===
+        // === 6. 右手：ストローク ===
         strumArea.addEventListener('pointerdown', () => {
-            if (!synth || currentNotes.length === 0) return; 
-            synth.triggerAttackRelease(currentNotes, "1n");
+            playChord(); // ★ギター風発音関数を呼び出し
             
             strumArea.classList.add('strum-flash');
             setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
