@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AcoustiSophy - Songbook Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #0a0a0a; color: #d4af37; font-family: 'Helvetica Neue', Arial, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* --- コントロールバー --- */
+        #control-bar {
+            height: 70px; background-color: #111; border-bottom: 2px solid #333;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 10px;
+        }
+        .control-group { display: flex; align-items: center; gap: 5px; }
+        
+        #library-btn { background-color: #d4af37; color: #000; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;}
+        
+        .key-btn { background-color: #222; color: #d4af37; border: 1px solid #444; border-radius: 6px; width: 35px; height: 35px; font-size: 18px; font-weight: bold; }
+        #edit-mode-btn { background-color: #333; color: #fff; border: 1px solid #555; padding: 8px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;}
+        #edit-mode-btn.editing { background-color: #ff4757; color: #fff; border-color: #fff; box-shadow: 0 0 10px rgba(255,71,87,0.5); }
+
+        /* --- メインコンテナ --- */
+        #app-container { display: flex; width: 100%; height: calc(100vh - 70px); }
+
+        /* 左：12コードボタン */
+        #chord-area { width: 55%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 6px; padding: 8px; border-right: 2px solid #222; }
+        .chord-btn { background-color: #1a1a1a; color: #fff; font-size: 20px; font-weight: bold; border: 1px solid #333; border-radius: 8px; display: flex; justify-content: center; align-items: center; position: relative; }
+        .chord-btn.active { background-color: #d4af37; color: #000; }
+        .edit-badge { position: absolute; top: 5px; right: 5px; font-size: 12px; color: #ff4757; display: none; }
+        .editing .edit-badge { display: block; }
+
+        /* 右：ストローク＆歌詞エリア */
+        #strum-area { 
+            width: 45%; background: linear-gradient(180deg, #111, #1a1a1a); 
+            display: flex; flex-direction: column; padding: 15px; position: relative;
+        }
+        .strum-flash { background: rgba(212, 175, 55, 0.2) !important; }
+        
+        #song-title-display { font-size: 18px; font-weight: bold; color: #d4af37; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 10px; pointer-events: none; }
+        #lyrics-display { font-size: 16px; color: #aaa; white-space: pre-wrap; line-height: 1.5; pointer-events: none; overflow-y: hidden; }
+        
+        .editing-overlay-hint { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,71,87,0.1); border: 2px dashed #ff4757; display: none; justify-content: center; align-items: center; font-weight: bold; color: #ff4757; font-size: 18px;}
+        .editing .editing-overlay-hint { display: flex; }
+
+        /* --- モーダル全般 --- */
+        .modal-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal-content { background-color: #222; padding: 25px; border-radius: 12px; border: 2px solid #d4af37; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 15px; max-height: 90vh; }
+        .modal-title { font-size: 20px; color: #fff; text-align: center; font-weight: bold;}
+        .modal-btns { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px;}
+        .modal-btn { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-cancel { background-color: #555; color: #fff; }
+        .btn-save { background-color: #d4af37; color: #000; }
+
+        /* --- Library モーダル --- */
+        #song-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 50vh; }
+        .song-list-item { background: #333; color: #fff; padding: 15px; border-radius: 8px; border: none; font-size: 16px; text-align: left; cursor: pointer;}
+        .song-list-item.active { border: 2px solid #d4af37; background: #444; }
+        #add-song-btn { background: #1a1a1a; color: #d4af37; border: 2px dashed #d4af37; padding: 15px; border-radius: 8px; font-weight: bold; margin-top: 10px;}
+
+        /* --- Lyrics Edit モーダル --- */
+        #edit-title-input { padding: 10px; font-size: 16px; border-radius: 6px; border: none; background: #111; color: #fff; width: 100%;}
+        #edit-lyrics-input { padding: 10px; font-size: 14px; border-radius: 6px; border: none; background: #111; color: #fff; width: 100%; height: 150px; resize: none;}
+
+        /* --- Chord Edit モーダル（ドラムロール） --- */
+        .drum-container { display: flex; justify-content: center; gap: 10px; }
+        select { appearance: none; -webkit-appearance: none; background-color: #111; color: #d4af37; font-size: 24px; font-weight: bold; border: 1px solid #555; border-radius: 8px; padding: 10px 15px; text-align: center; outline: none; }
+
+        /* ロック解除画面 */
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; justify-content: center; align-items: center; z-index: 300; }
+        #start-btn { padding: 25px 40px; font-size: 22px; font-weight: bold; color: #000; background-color: #d4af37; border: none; border-radius: 50px; }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay"><button id="start-btn">Unlock AcoustiSophy</button></div>
+
+    <!-- モーダル群 -->
+    <div id="library-modal" class="modal-bg">
+        <div class="modal-content">
+            <div class="modal-title">Song Library 📚</div>
+            <div id="song-list"></div>
+            <button id="add-song-btn">+ 新しい曲を作成</button>
+            <button class="modal-btn btn-cancel" id="close-library">閉じる</button>
+        </div>
+    </div>
+
+    <div id="lyrics-modal" class="modal-bg">
+        <div class="modal-content">
+            <div class="modal-title">曲名と歌詞を編集</div>
+            <input type="text" id="edit-title-input" placeholder="曲名">
+            <textarea id="edit-lyrics-input" placeholder="歌詞を入力..."></textarea>
+            <div class="modal-btns">
+                <button class="modal-btn btn-cancel" id="cancel-lyrics">Cancel</button>
+                <button class="modal-btn btn-save" id="save-lyrics">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="chord-modal" class="modal-bg">
+        <div class="modal-content">
+            <div class="modal-title">コードを選択</div>
+            <div class="drum-container">
+                <select id="root-select">
+                    <option value="C">C</option><option value="C#">C#</option><option value="D">D</option><option value="Eb">Eb</option><option value="E">E</option><option value="F">F</option><option value="F#">F#</option><option value="G">G</option><option value="G#">G#</option><option value="A">A</option><option value="Bb">Bb</option><option value="B">B</option>
+                </select>
+                <select id="type-select">
+                    <option value="">(Major)</option><option value="m">m</option><option value="7">7</option><option value="m7">m7</option><option value="M7">M7</option><option value="sus4">sus4</option><option value="add9">add9</option>
+                </select>
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn btn-cancel" id="cancel-chord">Cancel</button>
+                <button class="modal-btn btn-save" id="save-chord">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインUI -->
+    <div id="control-bar">
+        <button id="library-btn">📚 Library</button>
+        <div class="control-group">
+            <button id="key-down" class="key-btn">-</button>
+            <span id="key-display" style="width:50px; text-align:center; font-size:14px;">Key 0</span>
+            <button id="key-up" class="key-btn">+</button>
+        </div>
+        <button id="edit-mode-btn">Edit: OFF</button>
+    </div>
+
+    <div id="app-container">
+        <div id="chord-area"></div>
+        <div id="strum-area">
+            <div id="song-title-display">Title</div>
+            <div id="lyrics-display">Lyrics here</div>
+            <div class="editing-overlay-hint">TAP TO EDIT LYRICS</div>
+        </div>
+    </div>
+
+    <script>
+        // === 音楽理論エンジン ===
+        const noteMap = { "C":0, "C#":1, "Db":1, "D":2, "D#":3, "Eb":3, "E":4, "F":5, "F#":6, "Gb":6, "G":7, "G#":8, "Ab":8, "A":9, "A#":10, "Bb":10, "B":11 };
+        const chordRecipes = { "M": [0, 4, 7], "m": [0, 3, 7], "7": [0, 4, 7, 10], "m7": [0, 3, 7, 10], "M7": [0, 4, 7, 11], "maj7": [0, 4, 7, 11], "add9": [0, 4, 7, 14], "sus4": [0, 5, 7] };
+
+        function getNotesFromChord(chordName) {
+            try {
+                let rootMatch = chordName.match(/^[A-G][#b]?/);
+                let root = rootMatch ? rootMatch[0] : "C";
+                let type = chordName.substring(root.length) || "M";
+                let rootVideo = noteMap[root];
+                let recipe = chordRecipes[type] || chordRecipes["M"];
+                return recipe.map(interval => {
+                    let semitone = rootVideo + interval;
+                    let octave = 3 + Math.floor(semitone / 12);
+                    let note = Object.keys(noteMap).find(key => noteMap[key] === semitone % 12);
+                    return note + octave;
+                });
+            } catch(e) { return ["C3", "E3", "G3"]; }
+        }
+
+        // === データ管理 (Songbook) ===
+        const defaultSongs = [
+            { id: 1, title: "はじめての曲", lyrics: "ここに歌詞を入力します。\n\nこの文字のエリアを叩くと\nギターが鳴ります！", chords: ["C", "G", "Am", "F", "D", "E", "Em", "Bm", "C7", "G7", "Dm", "Bb"] }
+        ];
+        
+        let library = JSON.parse(localStorage.getItem('acoustisophy_library')) || defaultSongs;
+        let currentSongIndex = 0;
+        let isEditMode = false;
+        let currentNotes = ["C3", "E3", "G3"];
+        let targetEditChordIndex = null;
+
+        // UI要素
+        const chordArea = document.getElementById('chord-area');
+        const strumArea = document.getElementById('strum-area');
+        const titleDisplay = document.getElementById('song-title-display');
+        const lyricsDisplay = document.getElementById('lyrics-display');
+        const editModeBtn = document.getElementById('edit-mode-btn');
+
+        // データ保存処理
+        function saveLibrary() {
+            localStorage.setItem('acoustisophy_library', JSON.stringify(library));
+        }
+
+        // 画面描画（現在選ばれている曲をロード）
+        function renderCurrentSong() {
+            const song = library[currentSongIndex];
+            titleDisplay.innerText = song.title;
+            lyricsDisplay.innerText = song.lyrics;
+            
+            chordArea.innerHTML = "";
+            song.chords.forEach((name, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'chord-btn' + (index === 0 ? ' active' : '');
+                btn.innerHTML = `${name}<span class="edit-badge">✎</span>`;
+                btn.onclick = () => handleChordClick(index, name, btn);
+                chordArea.appendChild(btn);
+            });
+            if (song.chords.length > 0) currentNotes = getNotesFromChord(song.chords[0]);
+        }
+
+        // コードボタンクリック制御
+        function handleChordClick(index, name, btn) {
+            if (isEditMode) {
+                targetEditChordIndex = index;
+                let rootMatch = name.match(/^[A-G][#b]?/);
+                document.getElementById('root-select').value = rootMatch ? rootMatch[0] : "C";
+                document.getElementById('type-select').value = name.substring((rootMatch?rootMatch[0]:"C").length);
+                document.getElementById('chord-modal').style.display = 'flex';
+            } else {
+                document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentNotes = getNotesFromChord(name);
+            }
+        }
+
+        // === モーダル群のイベント ===
+
+        // 1. Library モーダル
+        document.getElementById('library-btn').onclick = () => {
+            const listDiv = document.getElementById('song-list');
+            listDiv.innerHTML = "";
+            library.forEach((song, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'song-list-item' + (i === currentSongIndex ? ' active' : '');
+                btn.innerText = `🎵 ${song.title}`;
+                btn.onclick = () => {
+                    currentSongIndex = i;
+                    renderCurrentSong();
+                    document.getElementById('library-modal').style.display = 'none';
+                };
+                listDiv.appendChild(btn);
+            });
+            document.getElementById('library-modal').style.display = 'flex';
+        };
+        
+        document.getElementById('close-library').onclick = () => document.getElementById('library-modal').style.display = 'none';
+        
+        document.getElementById('add-song-btn').onclick = () => {
+            const newSong = { title: "新しい曲", lyrics: "歌詞を入力...", chords: ["C","G","Am","F","C","G","Am","F","C","G","Am","F"] };
+            library.push(newSong);
+            currentSongIndex = library.length - 1;
+            saveLibrary();
+            renderCurrentSong();
+            document.getElementById('library-modal').style.display = 'none';
+        };
+
+        // 2. Lyrics Edit モーダル
+        strumArea.onpointerdown = () => {
+            if (isEditMode) {
+                document.getElementById('edit-title-input').value = library[currentSongIndex].title;
+                document.getElementById('edit-lyrics-input').value = library[currentSongIndex].lyrics;
+                document.getElementById('lyrics-modal').style.display = 'flex';
+            } else {
+                // 発音処理 (EditモードOFF時)
+                if (!synth) return;
+                synth.triggerAttackRelease(currentNotes, "2n");
+                strumArea.classList.add('strum-flash');
+                setTimeout(() => strumArea.classList.remove('strum-flash'), 100);
+            }
+        };
+
+        document.getElementById('cancel-lyrics').onclick = () => document.getElementById('lyrics-modal').style.display = 'none';
+        document.getElementById('save-lyrics').onclick = () => {
+            library[currentSongIndex].title = document.getElementById('edit-title-input').value || "無題";
+            library[currentSongIndex].lyrics = document.getElementById('edit-lyrics-input').value;
+            saveLibrary();
+            renderCurrentSong();
+            document.getElementById('lyrics-modal').style.display = 'none';
+        };
+
+        // 3. Chord Edit モーダル
+        document.getElementById('cancel-chord').onclick = () => document.getElementById('chord-modal').style.display = 'none';
+        document.getElementById('save-chord').onclick = () => {
+            const r = document.getElementById('root-select').value;
+            const t = document.getElementById('type-select').value;
+            library[currentSongIndex].chords[targetEditChordIndex] = r + t;
+            saveLibrary();
+            renderCurrentSong();
+            document.getElementById('chord-modal').style.display = 'none';
+        };
+
+        // Edit モード切替
+        editModeBtn.onclick = () => {
+            isEditMode = !isEditMode;
+            editModeBtn.innerText = isEditMode ? "Edit: ON" : "Edit: OFF";
+            editModeBtn.classList.toggle('editing', isEditMode);
+            chordArea.classList.toggle('editing', isEditMode);
+            strumArea.classList.toggle('editing', isEditMode);
+        };
+
+        // === 音響＆キーチェンジ処理 ===
+        let synth;
+        const pitchShift = new Tone.PitchShift(0);
+        const reverb = new Tone.Freeverb({ roomSize: 0.8, wet: 0.5 });
+        
+        document.getElementById('start-btn').onclick = async () => {
+            document.getElementById('start-btn').innerText = "Loading... 🎸";
+            await Tone.start();
+            synth = new Tone.Sampler({
+                urls: { "C4": "C4.mp3" },
+                baseUrl: "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_guitar_steel-mp3/",
+            }).chain(pitchShift, reverb, Tone.Destination);
+            await Tone.loaded();
+            document.getElementById('start-overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('start-overlay').style.display = 'none', 500);
+        };
+
+        let currentPitch = 0;
+        document.getElementById('key-up').onclick = () => { currentPitch++; pitchShift.pitch = currentPitch; document.getElementById('key-display').innerText = `Key ${currentPitch}`; };
+        document.getElementById('key-down').onclick = () => { currentPitch--; pitchShift.pitch = currentPitch; document.getElementById('key-display').innerText = `Key ${currentPitch}`; };
+
+        // 初回ロード
+        renderCurrentSong();
+    </script>
+</body>
+</html>
