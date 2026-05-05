@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v5.0 GAS</title>
+    <title>AcoustiSophy - v5.3 Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -27,7 +27,7 @@
 <body>
 
     <div id="start-overlay">
-        <button id="start-btn">Connect to Cloud...</button>
+        <button id="start-btn">Connecting...</button>
     </div>
 
     <div id="guide-area">
@@ -48,63 +48,130 @@
     </div>
 
     <script>
-  // ★ここに「/exec」で終わる正しいURLを貼り直してください！
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec";
+        // ★ここに「/exec」で終わる正しいURLを貼り直してください！
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec";
 
-let songDatabase = {
-    "【予備】上を向いて歩こう": {
-        chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
-        lyrics: "GAS通信エラー時用の予備データです。\nG  Em  C  D\n上を向いて歩こう..."
-    }
-};
+        // DOM要素の定義（ここが消えていたのがエラーの原因です！）
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const songSelector = document.getElementById('song-selector');
+        const keySelector = document.getElementById('key-selector');
+        const lyricDisplay = document.getElementById('lyric-display');
+        const chordArea = document.getElementById('chord-area');
+        const strumArea = document.getElementById('strum-area');
 
-async function fetchSongData() {
-    try {
-        // 通信タイムアウト設定
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        let songDatabase = {
+            "【予備】上を向いて歩こう": {
+                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
+                lyrics: "クラウドからデータを読み込めなかった時の予備曲です。"
+            }
+        }; 
 
-        const response = await fetch(GAS_URL, { signal: controller.signal });
-        if (!response.ok) throw new Error("CORS or Network Error");
-        
-        const data = await response.json();
-        if (data && Object.keys(data).length > 0) {
-            songDatabase = data;
-            startBtn.textContent = "Start AcoustiSophy";
-            startBtn.style.backgroundColor = "#d4af37";
-            console.log("Cloud Sync: Success");
+        let synth;
+        let currentNotes = []; 
+        let currentTranspose = 0; 
+
+        // 音を鳴らす関数
+        function playChord() {
+            if (!synth || currentNotes.length === 0) return;
+            const now = Tone.now();
+            currentNotes.forEach((note, index) => {
+                try {
+                    const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
+                } catch(e) { console.warn(e); }
+            });
         }
-    } catch (error) {
-        console.error("GAS通信失敗:", error);
-        startBtn.textContent = "Start (Offline Mode)";
-        startBtn.style.backgroundColor = "#666";
-    }
-}
 
-startBtn.onclick = async () => {
-    try {
-        await Tone.start();
-        
-        // ★エラー回避版：PolySynthの初期化を最も安全な方法に変更
-        synth = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: "triangle" }, // アコギに近い柔らかい波形
-            envelope: { attack: 0.02, decay: 1, sustain: 0.2, release: 1 }
-        }).toDestination();
-        
-        initSongSelector();
-        const titles = Object.keys(songDatabase);
-        loadSong(titles[0]);
+        // GAS通信関数
+        async function fetchSongData() {
+            try {
+                const response = await fetch(GAS_URL);
+                const data = await response.json();
+                if (data && Object.keys(data).length > 0) {
+                    songDatabase = data;
+                    startBtn.textContent = "Start AcoustiSophy";
+                    startBtn.style.backgroundColor = "#d4af37";
+                    console.log("Cloud Sync Success");
+                }
+            } catch (error) {
+                console.error("GASデータ取得失敗:", error);
+                startBtn.textContent = "Start (Offline Mode)";
+                startBtn.style.backgroundColor = "#888";
+            }
+        }
 
-    } catch (e) {
-        console.error("起動プロセスで事故:", e);
-    } finally {
-        // ★どんなエラーが起きても強制的に画面を表示！
-        startOverlay.style.opacity = '0';
-        setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
-    }
-};
+        // 起動ボタン
+        startBtn.onclick = async () => {
+            try {
+                await Tone.start();
+                // 修正：最も安全なPolySynthの初期化
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.02, decay: 1, sustain: 0.2, release: 1 }
+                }).toDestination();
+                synth.volume.value = 0;
 
-fetchSongData();
+                initSongSelector();
+                const titles = Object.keys(songDatabase);
+                loadSong(titles[0]);
+
+            } catch (e) {
+                console.error("Boot Error:", e);
+            } finally {
+                startOverlay.style.opacity = '0';
+                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+            }
+        };
+
+        keySelector.onchange = (e) => {
+            currentTranspose = parseInt(e.target.value);
+            playChord();
+        };
+
+        function initSongSelector() {
+            songSelector.innerHTML = "";
+            for (const songTitle in songDatabase) {
+                const option = document.createElement('option');
+                option.value = songTitle;
+                option.textContent = songTitle;
+                songSelector.appendChild(option);
+            }
+            songSelector.onchange = (e) => loadSong(e.target.value);
+        }
+
+        function loadSong(songTitle) {
+            const songData = songDatabase[songTitle];
+            if (!songData) return;
+            lyricDisplay.textContent = songData.lyrics;
+            chordArea.innerHTML = ""; 
+            songData.chords.forEach((chord, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'chord-btn';
+                if (index === 0) btn.classList.add('active'); 
+                btn.textContent = chord.name;
+                btn.setAttribute('data-notes', chord.notes);
+                btn.onpointerdown = (e) => {
+                    document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentNotes = e.target.getAttribute('data-notes').split(',');
+                    playChord();
+                };
+                chordArea.appendChild(btn);
+            });
+            if (songData.chords.length > 0) {
+                currentNotes = songData.chords[0].notes.split(',');
+            }
+        }
+
+        strumArea.onpointerdown = () => {
+            playChord();
+            strumArea.classList.add('strum-flash');
+            setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
+        };
+
+        // 実行
+        fetchSongData();
     </script>
 </body>
 </html>
