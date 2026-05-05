@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v3.0</title>
+    <title>AcoustiSophy - v4.2 Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * {
@@ -13,7 +13,6 @@
             user-select: none; 
             touch-action: manipulation; 
             -webkit-tap-highlight-color: transparent;
-            -webkit-touch-callout: none;
         }
 
         body {
@@ -26,15 +25,16 @@
             flex-direction: column;
         }
 
-        /* 起動画面 */
+        /* ★修正：画面全体を完璧にロックする設定 */
         #start-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.95);
+            position: fixed; /* absoluteからfixedに変更し、画面に固定 */
+            top: 0; left: 0; 
+            width: 100vw; height: 100vh;
+            background-color: #000; /* 完全に真っ黒にする */
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 100;
+            z-index: 9999; /* どんな要素よりも一番上に配置 */
             transition: opacity 0.5s ease;
         }
 
@@ -50,7 +50,7 @@
             box-shadow: 0 4px 20px rgba(212, 175, 55, 0.5);
         }
 
-        /* === ガイドエリア（コントロールパネル） === */
+        /* ガイドエリア */
         #guide-area {
             height: 40%;
             background-color: #222;
@@ -60,87 +60,30 @@
             padding: 10px;
         }
 
-        #controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
+        #controls { display: flex; gap: 10px; margin-bottom: 10px; }
         #song-selector, #key-selector {
-            padding: 10px;
-            font-size: 16px;
-            background-color: #333;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 8px;
-            outline: none;
+            padding: 10px; font-size: 16px; background-color: #333; color: #fff; border: 1px solid #555; border-radius: 8px;
         }
-
         #song-selector { flex-grow: 1; }
-        #key-selector { width: 100px; }
 
         #lyric-display {
-            flex-grow: 1;
-            overflow-y: auto;
-            color: #eee;
-            font-size: 16px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            padding: 5px;
-            user-select: auto; 
-            touch-action: auto;
+            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 1.6; white-space: pre-wrap; padding: 5px;
         }
 
-        /* === 楽器本体 === */
-        #app-container {
-            display: flex;
-            height: 60%;
-            width: 100%;
-        }
-
+        /* 楽器本体 */
+        #app-container { display: flex; height: 60%; width: 100%; }
         #chord-area {
-            width: 50%;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 10px;
-            padding: 15px;
-            border-right: 2px solid #333;
-            background-color: #1a1a1a;
+            width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 15px; border-right: 2px solid #333;
         }
-
         .chord-btn {
-            background-color: #2a2a2a;
-            color: #fff;
-            font-size: 32px;
-            font-weight: bold;
-            border: 2px solid #444;
-            border-radius: 12px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: background-color 0.1s, transform 0.1s;
+            background-color: #2a2a2a; color: #fff; font-size: 32px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center;
         }
-
-        .chord-btn.active {
-            background-color: #d4af37;
-            color: #1a1a1a;
-            transform: scale(0.96);
-            border-color: #fff;
-        }
+        .chord-btn.active { background-color: #d4af37; color: #1a1a1a; transform: scale(0.96); border-color: #fff; }
 
         #strum-area {
-            width: 50%;
-            background: linear-gradient(135deg, #111, #222);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            cursor: crosshair;
+            width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; justify-content: center; align-items: center;
         }
-
-        #strum-text { color: #666; font-size: 20px; pointer-events: none; }
+        #strum-text { color: #666; font-size: 20px; }
         .strum-flash { background: rgba(212, 175, 55, 0.3) !important; }
     </style>
 </head>
@@ -152,55 +95,36 @@
 
     <div id="guide-area">
         <div id="controls">
-            <!-- 曲選択 -->
             <select id="song-selector"></select>
-            <!-- キー変更（トランスポーズ） -->
             <select id="key-selector">
-                <option value="3">+3</option>
-                <option value="2">+2</option>
-                <option value="1">+1</option>
+                <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
                 <option value="0" selected>±0</option>
-                <option value="-1">-1</option>
-                <option value="-2">-2</option>
-                <option value="-3">-3</option>
+                <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
             </select>
         </div>
-        <div id="lyric-display">ここに歌詞とコードが表示されます</div>
+        <div id="lyric-display"></div>
     </div>
 
     <div id="app-container">
         <div id="chord-area"></div>
-        <div id="strum-area">
-            <div id="strum-text">Tap to Strum</div>
-        </div>
+        <div id="strum-area"><div id="strum-text">Tap to Strum</div></div>
     </div>
 
     <script>
-        // === 1. データベース ===
         const songDatabase = {
             "上を向いて歩こう": {
-                chords: [
-                    { name: "G", notes: "G3,B3,D4" },
-                    { name: "Em", notes: "E3,G3,B3" },
-                    { name: "C", notes: "C4,E4,G4" },
-                    { name: "D", notes: "D4,F#4,A4" }
-                ],
-                lyrics: `G        Em       C      D\n上を向いて　歩こう\nG        Em       C      D\n涙がこぼれないように\n\nG        Em       C      D\n思い出す　春の日\nC        D        G\n一人ぽっちの夜`
+                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
+                lyrics: `G    Em    C    D\n上を向いて歩こう\nG    Em    C    D\n涙がこぼれないように`
             },
             "Stand By Me": {
-                chords: [
-                    { name: "A", notes: "A3,C#4,E4" },
-                    { name: "F#m", notes: "F#3,A3,C#4" },
-                    { name: "D", notes: "D4,F#4,A4" },
-                    { name: "E", notes: "E3,G#3,B3" }
-                ],
-                lyrics: `A\nWhen the night has come\nF#m\nAnd the land is dark\nD              E                  A\nAnd the moon is the only light we'll see\n\nA\nNo I won't be afraid\nF#m\nOh I won't be afraid\nD              E                  A\nJust as long as you stand, stand by me`
+                chords: [{ name: "A", notes: "A3,C#4,E4" }, { name: "F#m", notes: "F#3,A3,C#4" }, { name: "D", notes: "D4,F#4,A4" }, { name: "E", notes: "E3,G#3,B3" }],
+                lyrics: `A\nWhen the night has come\nF#m\nAnd the land is dark`
             }
         };
 
         let synth;
         let currentNotes = []; 
-        let currentTranspose = 0; // 現在のキー変更値（初期値は0）
+        let currentTranspose = 0; 
 
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
@@ -210,109 +134,83 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        document.addEventListener('contextmenu', event => event.preventDefault());
-
-        // === 2. ギター風の発音ロジック（ストローク効果＆キー変更） ===
         function playChord() {
             if (!synth || currentNotes.length === 0) return;
-            
             const now = Tone.now();
-            
-            // 和音の各音符に対して処理
             currentNotes.forEach((note, index) => {
-                // 1. キー変更（Tone.Frequencyを使って半音単位でシフト）
-                const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                
-                // 2. ストローク効果（0.03秒ずつ発音をズラしてギターの「ジャラーン」を再現）
-                synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
+                try {
+                    const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
+                } catch(e) { console.error("音の再生エラー:", e); }
             });
         }
 
-// === 3. 起動（完全修正版） ===
-startBtn.addEventListener('click', async () => {
+        // ★修正：起動ロジックの順序を整理し、エラー耐性を強化
+        startBtn.addEventListener('click', async () => {
             try {
                 await Tone.start();
                 console.log("Audio Context Started");
 
-                // A. まず楽器（シンセ）を準備する
+                // 楽器の生成
                 synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
                 synth.volume.value = 0;
 
-                // B. 次に「曲リスト」を先に作る（これ重要！）
-                initSongSelector(); 
-
-                // C. リストができてから「1曲目」を読み込む
-                const firstSong = Object.keys(songDatabase)[0];
-                loadSong(firstSong); 
-
-                // D. 最後に画面を消す
-                startOverlay.style.opacity = '0';
-                setTimeout(() => { 
-                    startOverlay.style.display = 'none'; 
-                }, 500);
+                // UIの初期化
+                initSongSelector();
+                loadSong(Object.keys(songDatabase)[0]); 
 
             } catch (error) {
                 console.error("起動エラー:", error);
-                alert("起動に失敗しました。ページを再読み込みしてください。");
+            } finally {
+                // ★たとえエラーが起きても、強制的に画面だけは切り替える
+                startOverlay.style.opacity = '0';
+                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
             }
         });
 
-        // === 4. キー変更イベント ===
         keySelector.addEventListener('change', (e) => {
             currentTranspose = parseInt(e.target.value);
-            // キーを変えた瞬間に新しいキーで鳴らして確認させる
             playChord();
         });
 
-        // === 5. 曲の切り替えロジック ===
         function initSongSelector() {
+            songSelector.innerHTML = "";
             for (const songTitle in songDatabase) {
                 const option = document.createElement('option');
                 option.value = songTitle;
                 option.textContent = songTitle;
                 songSelector.appendChild(option);
             }
-            songSelector.addEventListener('change', (e) => {
-                loadSong(e.target.value);
-            });
+            songSelector.onchange = (e) => loadSong(e.target.value);
         }
 
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
+            if(!songData) return;
             lyricDisplay.textContent = songData.lyrics;
             chordArea.innerHTML = ""; 
-            
             songData.chords.forEach((chord, index) => {
                 const btn = document.createElement('div');
                 btn.className = 'chord-btn';
                 if (index === 0) btn.classList.add('active'); 
                 btn.textContent = chord.name;
                 btn.setAttribute('data-notes', chord.notes);
-                
-                btn.addEventListener('pointerdown', (e) => {
+                btn.onpointerdown = (e) => {
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
-                    
-                    const notesString = e.target.getAttribute('data-notes');
-                    currentNotes = notesString.split(',');
-                    
-                    playChord(); // ★ギター風発音関数を呼び出し
-                    if (navigator.vibrate) navigator.vibrate(10);
-                });
+                    currentNotes = e.target.getAttribute('data-notes').split(',');
+                    playChord();
+                };
                 chordArea.appendChild(btn);
             });
             currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // === 6. 右手：ストローク ===
-        strumArea.addEventListener('pointerdown', () => {
-            playChord(); // ★ギター風発音関数を呼び出し
-            
+        strumArea.onpointerdown = () => {
+            playChord();
             strumArea.classList.add('strum-flash');
             setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
-            if (navigator.vibrate) navigator.vibrate(15);
-        });
-
+        };
     </script>
 </body>
 </html>
