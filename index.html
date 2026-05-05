@@ -94,22 +94,44 @@
         startBtn.onclick = async () => {
             try {
                 await Tone.start();
-                // 最も安定したシンセ音の作り方
-                synth = new Tone.PolySynth().toDestination();
-                synth.set({
-                    oscillator: { type: "triangle" },
-                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 }
-                });
+                console.log("Audio Context Started");
+                startBtn.textContent = "Loading Real Sound...";
+
+                // ★ Route B：本物のサンプリング音源を使用
+                // GitHub上の高品質なアコギ音源アーカイブから直接読み込みます
+                synth = new Tone.Sampler({
+                    urls: {
+                        "A2": "A2.mp3",
+                        "C3": "C3.mp3",
+                        "E3": "E3.mp3",
+                        "G3": "G3.mp3",
+                        "A3": "A3.mp3",
+                        "C4": "C4.mp3",
+                        "E4": "E4.mp3",
+                        "G4": "G4.mp3"
+                    },
+                    // 音源の配布元URL（GitHub PagesのCDNを利用）
+                    baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
+                    
+                    onload: () => {
+                        console.log("本物のギター音、全サンプルのロード完了！");
+                        startBtn.textContent = "Start AcoustiSophy (Real Sound)";
+                        
+                        // 画面を消す処理をここに移動（音が準備できてから画面を出す）
+                        startOverlay.style.opacity = '0';
+                        setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+                    }
+                }).toDestination();
+
+                // 音量を少し大きく調整（サンプリング音は少し小さめなことが多いため）
+                synth.volume.value = 5;
 
                 initSongSelector();
                 loadSong(songSelector.value || Object.keys(songDatabase)[0]);
 
             } catch (e) {
                 console.error("Boot Error:", e);
-            } finally {
-                // 何があっても黒い幕を消す
-                startOverlay.style.opacity = '0';
-                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+                startOverlay.style.display = 'none';
             }
         };
 
