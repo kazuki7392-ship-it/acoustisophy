@@ -3,88 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v4.2 Fixed</title>
+    <title>AcoustiSophy - v4.3 Bulletproof</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none; 
-            touch-action: manipulation; 
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: #1a1a1a;
-            color: #d4af37;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* ★修正：画面全体を完璧にロックする設定 */
-        #start-overlay {
-            position: fixed; /* absoluteからfixedに変更し、画面に固定 */
-            top: 0; left: 0; 
-            width: 100vw; height: 100vh;
-            background-color: #000; /* 完全に真っ黒にする */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999; /* どんな要素よりも一番上に配置 */
-            transition: opacity 0.5s ease;
-        }
-
-        #start-btn {
-            padding: 20px 40px;
-            font-size: 28px;
-            font-weight: bold;
-            color: #1a1a1a;
-            background-color: #d4af37;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(212, 175, 55, 0.5);
-        }
-
-        /* ガイドエリア */
-        #guide-area {
-            height: 40%;
-            background-color: #222;
-            border-bottom: 2px solid #d4af37;
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-        }
-
-        #controls { display: flex; gap: 10px; margin-bottom: 10px; }
-        #song-selector, #key-selector {
-            padding: 10px; font-size: 16px; background-color: #333; color: #fff; border: 1px solid #555; border-radius: 8px;
-        }
-        #song-selector { flex-grow: 1; }
-
-        #lyric-display {
-            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 1.6; white-space: pre-wrap; padding: 5px;
-        }
-
-        /* 楽器本体 */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
+        #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4); }
+        #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
+        #controls { display: flex; gap: 10px; margin-bottom: 8px; }
+        #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
+        #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
+        #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 1.6; white-space: pre-wrap; padding: 8px; background: #1a1a1a; border-radius: 8px; }
         #app-container { display: flex; height: 60%; width: 100%; }
-        #chord-area {
-            width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 15px; border-right: 2px solid #333;
-        }
-        .chord-btn {
-            background-color: #2a2a2a; color: #fff; font-size: 32px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center;
-        }
-        .chord-btn.active { background-color: #d4af37; color: #1a1a1a; transform: scale(0.96); border-color: #fff; }
-
-        #strum-area {
-            width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; justify-content: center; align-items: center;
-        }
-        #strum-text { color: #666; font-size: 20px; }
-        .strum-flash { background: rgba(212, 175, 55, 0.3) !important; }
+        #chord-area { width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 12px; border-right: 2px solid #333; }
+        .chord-btn { background-color: #2a2a2a; color: #fff; font-size: 28px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .chord-btn.active { background-color: #d4af37; color: #1a1a1a; border-color: #fff; }
+        #strum-area { width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; justify-content: center; align-items: center; }
+        #strum-text { color: #555; font-size: 18px; }
+        .strum-flash { background: rgba(212, 175, 55, 0.2) !important; }
     </style>
 </head>
 <body>
@@ -126,6 +63,7 @@
         let currentNotes = []; 
         let currentTranspose = 0; 
 
+        // 要素の取得
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const songSelector = document.getElementById('song-selector');
@@ -134,46 +72,67 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
+        // 音を鳴らすメイン関数
         function playChord() {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
             currentNotes.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                    // ギター風のストローク（0.03秒ずらす）
                     synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.error("音の再生エラー:", e); }
+                } catch(e) { console.warn("発音エラー:", e); }
             });
         }
 
-        // ★修正：起動ロジックの順序を整理し、エラー耐性を強化
+        // ★最強の起動ロジック
         startBtn.addEventListener('click', async () => {
             try {
+                // 1. Tone.jsのチェック
+                if (typeof Tone === 'undefined') throw new Error("Tone.jsが読み込まれていません");
+
+                // 2. 音声コンテキストの開始
                 await Tone.start();
                 console.log("Audio Context Started");
 
-                // 楽器の生成
-                synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
-                synth.volume.value = 0;
+                // 3. 楽器の生成（安全装置付き）
+                try {
+                    // まずは「弦の音」を試す
+                    synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+                    console.log("PluckSynth Ready");
+                } catch (e) {
+                    console.warn("PluckSynth失敗。通常シンセに切り替えます。", e);
+                    // 失敗したら普通のシンセに切り替え（フォールバック）
+                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                }
+                synth.volume.value = 2;
 
-                // UIの初期化
+                // 4. UIの初期化
                 initSongSelector();
-                loadSong(Object.keys(songDatabase)[0]); 
+                const songTitles = Object.keys(songDatabase);
+                if (songTitles.length > 0) {
+                    loadSong(songTitles[0]);
+                }
 
-            } catch (error) {
-                console.error("起動エラー:", error);
-            } finally {
-                // ★たとえエラーが起きても、強制的に画面だけは切り替える
+                // 5. 成功したら画面を消す
                 startOverlay.style.opacity = '0';
                 setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+
+            } catch (error) {
+                console.error("致命的な起動エラー:", error);
+                // エラーが起きても、とりあえず画面だけは消して使えるようにする
+                startOverlay.style.display = 'none';
+                alert("一部の機能に制限がありますが、起動しました。");
             }
         });
 
-        keySelector.addEventListener('change', (e) => {
+        keySelector.onchange = (e) => {
             currentTranspose = parseInt(e.target.value);
             playChord();
-        });
+        };
 
         function initSongSelector() {
+            if (!songSelector) return;
             songSelector.innerHTML = "";
             for (const songTitle in songDatabase) {
                 const option = document.createElement('option');
@@ -186,7 +145,7 @@
 
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
-            if(!songData) return;
+            if (!songData) return;
             lyricDisplay.textContent = songData.lyrics;
             chordArea.innerHTML = ""; 
             songData.chords.forEach((chord, index) => {
@@ -198,12 +157,17 @@
                 btn.onpointerdown = (e) => {
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
-                    currentNotes = e.target.getAttribute('data-notes').split(',');
-                    playChord();
+                    const notes = e.target.getAttribute('data-notes');
+                    if (notes) {
+                        currentNotes = notes.split(',');
+                        playChord();
+                    }
                 };
                 chordArea.appendChild(btn);
             });
-            currentNotes = songData.chords[0].notes.split(',');
+            if (songData.chords.length > 0) {
+                currentNotes = songData.chords[0].notes.split(',');
+            }
         }
 
         strumArea.onpointerdown = () => {
