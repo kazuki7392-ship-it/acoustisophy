@@ -231,12 +231,16 @@
         // === 3. 起動 ===
         startBtn.addEventListener('click', async () => {
             await Tone.start();
-            // ギターっぽくするために音の立ち上がりと余韻（エンベロープ）を調整
-            synth = new Tone.PolySynth(Tone.Synth, {
-                oscillator: { type: "triangle" },
-                envelope: { attack: 0.005, decay: 2.0, sustain: 0.2, release: 2.0 }
+            
+            // ★ここを大改造！「Tone.Synth」から「Tone.PluckSynth（弦のシミュレーション）」へ！
+            synth = new Tone.PolySynth(Tone.PluckSynth, {
+                attackNoise: 1.5, // ピックが弦に当たる「ジャリッ」というノイズ感
+                dampening: 4000,  // 音のこもり具合（アコギの木のボディ感を出す）
+                resonance: 0.9    // 弦の余韻（サステイン）の長さ
             }).toDestination();
-            synth.volume.value = -4;
+            
+            // PluckSynthは計算上、音が少し小さめになるのでボリュームを上げる
+            synth.volume.value = 4;
 
             initSongSelector();
             loadSong(Object.keys(songDatabase)[0]); 
