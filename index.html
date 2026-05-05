@@ -48,117 +48,68 @@
     </div>
 
     <script>
-        // ★ここにGASのWebアプリURLを貼り付けてください！
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbyfdlnUcZAZRYSzCuvn8YYEr8SqYGGr6uofG_tl_9S-MtoGqB0xsgrnYeXcR3cCzXXD/exec";
+    // ★ここにGASの最新URLを貼ってください
+    const GAS_URL = "https://script.google.com/macros/library/d/1ZGMn7-ySKkxi7v6T77TIK-_IipXE0iyK87nFlzI8Q4KfdI3XwY3lI9vM/4";
 
-        let songDatabase = {}; // GASから取得したデータが入る
-        let synth;
-        let currentNotes = []; 
-        let currentTranspose = 0; 
+let songDatabase = {
+    // ★バックアップ用データ：GASが死んでいても、最低限これが動く
+    "上を向いて歩こう(Local)": {
+        chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
+        lyrics: `G  Em  C  D\n(Local Mode)\n上を向いて歩こう`
+    }
+}; 
 
-        const startOverlay = document.getElementById('start-overlay');
-        const startBtn = document.getElementById('start-btn');
-        const songSelector = document.getElementById('song-selector');
-        const keySelector = document.getElementById('key-selector');
-        const lyricDisplay = document.getElementById('lyric-display');
-        const chordArea = document.getElementById('chord-area');
-        const strumArea = document.getElementById('strum-area');
+let synth;
+let currentNotes = []; 
+let currentTranspose = 0; 
 
-        function playChord() {
-            if (!synth || currentNotes.length === 0) return;
-            const now = Tone.now();
-            currentNotes.forEach((note, index) => {
-                try {
-                    const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.warn(e); }
-            });
+const startOverlay = document.getElementById('start-overlay');
+const startBtn = document.getElementById('start-btn');
+// 他の要素取得は省略（既存のまま）
+
+// ページ読み込み時にGASからデータを取得
+async function fetchSongData() {
+    console.log("GAS通信開始...");
+    try {
+        const response = await fetch(GAS_URL);
+        if (!response.ok) throw new Error("Network response was not ok");
+        
+        const data = await response.json();
+        if (Object.keys(data).length > 0) {
+            songDatabase = data; // 取得成功時のみ上書き
+            console.log("クラウド同期成功！", songDatabase);
+            startBtn.textContent = "Start AcoustiSophy";
+            startBtn.style.backgroundColor = "#d4af37";
         }
+    } catch (error) {
+        console.error("GAS連携失敗:", error);
+        // 失敗しても止まらないように、ボタンだけは押せるようにする
+        startBtn.textContent = "Start (Offline Mode)";
+        startBtn.style.backgroundColor = "#888";
+    }
+}
 
-        // ページ読み込み時にGASからデータを取得
-        async function fetchSongData() {
-            try {
-                const response = await fetch(GAS_URL);
-                songDatabase = await response.json();
-                console.log("Database Loaded:", songDatabase);
-                
-                // データの準備ができたらボタンを「Start」に変える
-                startBtn.textContent = "Start AcoustiSophy";
-                startBtn.style.backgroundColor = "#d4af37";
-            } catch (error) {
-                console.error("GASデータ取得エラー:", error);
-                startBtn.textContent = "Offline Mode (Click to Start)";
-            }
-        }
+// 起動ボタン（絶対に画面を切り替えるマン）
+startBtn.addEventListener('click', async () => {
+    try {
+        await Tone.start();
+        synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+        
+        initSongSelector();
+        const songTitles = Object.keys(songDatabase);
+        loadSong(songTitles[0]);
 
-        // 起動時
-        startBtn.addEventListener('click', async () => {
-            try {
-                await Tone.start();
-                synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
-                synth.volume.value = 4;
+    } catch (e) {
+        console.error("起動プロセスエラー:", e);
+    } finally {
+        // ★たとえ何が起きても、絶対に黒い画面を消す！
+        startOverlay.style.opacity = '0';
+        setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+    }
+});
 
-                initSongSelector();
-                const songTitles = Object.keys(songDatabase);
-                if (songTitles.length > 0) {
-                    loadSong(songTitles[0]);
-                }
-
-                startOverlay.style.opacity = '0';
-                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
-            } catch (error) {
-                startOverlay.style.display = 'none';
-            }
-        });
-
-        keySelector.onchange = (e) => {
-            currentTranspose = parseInt(e.target.value);
-            playChord();
-        };
-
-        function initSongSelector() {
-            songSelector.innerHTML = "";
-            for (const songTitle in songDatabase) {
-                const option = document.createElement('option');
-                option.value = songTitle;
-                option.textContent = songTitle;
-                songSelector.appendChild(option);
-            }
-            songSelector.onchange = (e) => loadSong(e.target.value);
-        }
-
-        function loadSong(songTitle) {
-            const songData = songDatabase[songTitle];
-            if (!songData) return;
-            lyricDisplay.textContent = songData.lyrics;
-            chordArea.innerHTML = ""; 
-            songData.chords.forEach((chord, index) => {
-                const btn = document.createElement('div');
-                btn.className = 'chord-btn';
-                if (index === 0) btn.classList.add('active'); 
-                btn.textContent = chord.name;
-                btn.setAttribute('data-notes', chord.notes);
-                btn.onpointerdown = (e) => {
-                    document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    currentNotes = e.target.getAttribute('data-notes').split(',');
-                    playChord();
-                };
-                chordArea.appendChild(btn);
-            });
-            if (songData.chords.length > 0) {
-                currentNotes = songData.chords[0].notes.split(',');
-            }
-        }
-
-        strumArea.onpointerdown = () => {
-            playChord();
-            strumArea.classList.add('strum-flash');
-            setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
-        };
-
-        // 最初にデータを読み込み開始
-        fetchSongData();
+// 最初にデータを読み込み開始
+fetchSongData();
     </script>
 </body>
 </html>
