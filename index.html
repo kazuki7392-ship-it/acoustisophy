@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.11 Smart Defrag</title>
+    <title>AcoustiSophy - v6.13 Ultimate Score</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -55,14 +55,13 @@
     </div>
 
     <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
-        
         <h2 style="color: #d4af37; margin-bottom: 15px;">Admin Panel</h2>
         
         <select id="admin-mode-selector" style="width: 100%; padding: 12px; margin-bottom: 20px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 5px; font-size: 16px;">
             <option value="">✨ 新規作成 (Create New Song)</option>
         </select>
 
-        <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集モード中は変更不可)</span>:</label>
+        <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集中は変更不可)</span>:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
         
         <label>Lyrics & Chords (U-FRETのテキストをペースト):</label>
@@ -144,7 +143,7 @@
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
             if (!songData) return;
-            lyricDisplay.textContent = songData.lyrics.replace(/\\n/g, '\n');
+            lyricDisplay.textContent = songData.lyrics;
             chordArea.innerHTML = ""; 
             songData.chords.forEach((chord, index) => {
                 const btn = document.createElement('div');
@@ -292,21 +291,16 @@
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
-        // 自動抽出ボタンの処理（抽出する際に、G#dimなども柔軟に拾えるように正規表現化）
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value;
             if (!text) return alert("テキストを貼り付けてください！");
             const tokens = text.split(/[\s\n\t　]+/);
             let foundUniqueChords = new Set(); 
-            // 辞書依存ではなく「コードっぽい文字列か」で抽出する強力な正規表現
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
             tokens.forEach(token => {
                 let cleanToken = token.trim();
-                // 日本語が含まれない ＆ コードっぽい文字なら抽出
                 if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && chordRegex.test(cleanToken)) {
-                    // もし辞書にあるコードならそのまま採用、無いもの（G#dimなど）は一番近い基本コードに丸めるか、無視するか
-                    // （抽出ドラムロールには限界があるので、ここでは辞書にあるものだけをセットするようフォールバック）
                     let baseChord = masterChordDictionary[cleanToken] ? cleanToken : cleanToken.replace(/dim|aug|sus4|add9|m7-5/g, '');
                     if(masterChordDictionary[baseChord]) {
                         foundUniqueChords.add(baseChord);
@@ -322,56 +316,63 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「デフラグ ＆ 日本語特化浄化」処理 ★★★
+        // ★★★ 究極の「歌詞の上にコードを表示する」デフラグ処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
             
-            // 1. U-FRET特有の「見えないゴミ文字（ゼロ幅スペース等）」を完全に消去
             rawLyrics = rawLyrics.replace(/[\u200B-\u200D\uFEFF]/g, '');
+            let lines = rawLyrics.split('\n').map(line => line.trim());
 
-            // 2. 行ごとに分割
-            let lines = rawLyrics.split('\n');
-
-            // 3. 【日本語絶対主義フィルター】
-            // その行に「ひらがな・カタカナ・漢字」が含まれていなければ、コード（または不要な英語）と見なして問答無用で削除！
-            lines = lines.filter(line => {
-                let trimmed = line.trim();
-                if (trimmed === "") return true; // 空行（段落の区切り用）は残す
-                
-                let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(trimmed);
-                // 日本語が含まれていないなら、削除（falseを返す）
-                if (!hasJapanese) return false; 
-                
-                return true; // 日本語が含まれているなら歌詞として残す
-            });
-
-            // 4. 【スマート・コンバイン（デフラグ）】
-            // 縦に割られた歌詞を、空行の連続数を見て「スペース」か「改行」かで横に繋ぎ直す
             let resultText = "";
-            let emptyCount = 0;
+            let chordBuffer = []; // 上に表示するコードを溜める
+            let lyricBuffer = []; // 下に表示する歌詞を溜める
+
+            // 溜まったコードと歌詞を合体して出力する機能
+            const flushBuffers = () => {
+                if (chordBuffer.length > 0 || lyricBuffer.length > 0) {
+                    if (chordBuffer.length > 0) resultText += chordBuffer.join("　　") + "\n";
+                    if (lyricBuffer.length > 0) resultText += lyricBuffer.join("") + "\n";
+                    resultText += "\n"; // 段落の終わりの空行
+                    chordBuffer = [];
+                    lyricBuffer = [];
+                }
+            };
 
             for(let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
+                let line = lines[i];
+                
                 if (line === "") {
-                    emptyCount++;
-                } else {
-                    if (emptyCount >= 2) {
-                        // 2回以上空行があったら、それは新しいフレーズ（段落）とみなして本当に改行する
-                        resultText += "\n\n" + line;
-                    } else if (emptyCount === 1) {
-                        // 1回の空行なら、同じフレーズ内の単語の分断とみなして「スペース」で横に繋ぐ
-                        resultText += "　" + line;
-                    } else {
-                        // 空行なし（連続）の場合もスペースで横に繋ぐ
-                        resultText += (resultText === "" ? "" : "　") + line;
+                    flushBuffers(); // 空行が来たら一区切り
+                    continue;
+                }
+                
+                let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
+                let isChordLine = false;
+                
+                if (!hasJapanese) {
+                    let tokens = line.split(/[\s\t　]+/);
+                    const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
+                    isChordLine = tokens.every(token => chordRegex.test(token) || masterChordDictionary[token]);
+                }
+                
+                if (isChordLine) {
+                    // もしすでに歌詞が入っているのに新しいコードが来たら、前のフレーズが完了したとみなす
+                    if (lyricBuffer.length > 0) {
+                        flushBuffers();
                     }
-                    emptyCount = 0; // リセット
+                    // コードを溜める（F G など横並びの場合も分割して綺麗に溜める）
+                    let tokens = line.split(/[\s\t　]+/).filter(t => t !== "");
+                    chordBuffer.push(...tokens);
+                } else {
+                    // 歌詞なら溜める（あの飛 行機 もここでくっつく）
+                    lyricBuffer.push(line);
                 }
             }
+            flushBuffers(); // 最後の行を確実に出力
 
-            // 最終仕上げのトリム
-            let cleanedLyrics = resultText.trim();
+            // 連続しすぎた改行だけを念のため整える
+            let cleanedLyrics = resultText.replace(/\n{3,}/g, '\n\n').trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
             let hasError = false, errorChordName = "";
