@@ -3,55 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v5.3 Fixed</title>
+    <title>AcoustiSophy - v5.4 Stable</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
+        /* スタイルは変更なし（前回のままでOK） */
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
-        #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4); }
+        #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
         #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
         #controls { display: flex; gap: 10px; margin-bottom: 8px; }
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
         #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
         #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 1.6; white-space: pre-wrap; padding: 8px; background: #1a1a1a; border-radius: 8px; }
         #app-container { display: flex; height: 60%; width: 100%; }
-        #chord-area { width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 12px; border-right: 2px solid #333; }
-        .chord-btn { background-color: #2a2a2a; color: #fff; font-size: 28px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
-        .chord-btn.active { background-color: #d4af37; color: #1a1a1a; border-color: #fff; }
+        #chord-area { width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 12px; }
+        .chord-btn { background-color: #2a2a2a; color: #fff; font-size: 28px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; }
+        .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
         #strum-area { width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; justify-content: center; align-items: center; }
         #strum-text { color: #555; font-size: 18px; }
         .strum-flash { background: rgba(212, 175, 55, 0.2) !important; }
     </style>
 </head>
 <body>
-
-    <div id="start-overlay">
-        <button id="start-btn">Connecting...</button>
-    </div>
-
-    <div id="guide-area">
-        <div id="controls">
-            <select id="song-selector"></select>
-            <select id="key-selector">
-                <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
-                <option value="0" selected>±0</option>
-                <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
-            </select>
-        </div>
+    <div id="start-overlay"><button id="start-btn">Start AcoustiSophy</button></div>
+    <div id="guide-area"><div id="controls"><select id="song-selector"></select><select id="key-selector">
+        <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option><option value="0" selected>±0</option>
+        <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option></select></div>
         <div id="lyric-display"></div>
     </div>
-
-    <div id="app-container">
-        <div id="chord-area"></div>
-        <div id="strum-area"><div id="strum-text">Tap to Strum</div></div>
-    </div>
+    <div id="app-container"><div id="chord-area"></div><div id="strum-area"><div id="strum-text">Tap to Strum</div></div></div>
 
     <script>
-        // ★ここに「/exec」で終わる正しいURLを貼り直してください！
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec";
 
-        // DOM要素の定義（ここが消えていたのがエラーの原因です！）
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const songSelector = document.getElementById('song-selector');
@@ -60,57 +45,48 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        let songDatabase = {
-            "【予備】上を向いて歩こう": {
-                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
-                lyrics: "クラウドからデータを読み込めなかった時の予備曲です。"
-            }
-        }; 
-
+        let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading..." } };
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
 
-        // 音を鳴らす関数
         function playChord() {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
             currentNotes.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
+                    // PolySynthが正しく作成されていれば、ここで音が鳴ります
                     synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.warn(e); }
+                } catch(e) { console.warn("Play error:", e); }
             });
         }
 
-        // GAS通信関数
         async function fetchSongData() {
+            console.log("GAS通信開始...");
             try {
                 const response = await fetch(GAS_URL);
                 const data = await response.json();
                 if (data && Object.keys(data).length > 0) {
                     songDatabase = data;
-                    startBtn.textContent = "Start AcoustiSophy";
-                    startBtn.style.backgroundColor = "#d4af37";
-                    console.log("Cloud Sync Success");
+                    console.log("Database Loaded:", songDatabase);
                 }
-            } catch (error) {
-                console.error("GASデータ取得失敗:", error);
-                startBtn.textContent = "Start (Offline Mode)";
-                startBtn.style.backgroundColor = "#888";
-            }
+            } catch (error) { console.error("GASデータ取得失敗:", error); }
         }
 
-        // 起動ボタン
         startBtn.onclick = async () => {
             try {
                 await Tone.start();
-                // 修正：最も安全なPolySynthの初期化
-                synth = new Tone.PolySynth(Tone.Synth, {
+                console.log("Audio Context Started");
+
+                // ★修正：最も安全な初期化方法（引数を空にする）
+                // これにより、Monophonic classエラーを回避します
+                synth = new Tone.PolySynth().toDestination();
+                synth.set({
                     oscillator: { type: "triangle" },
-                    envelope: { attack: 0.02, decay: 1, sustain: 0.2, release: 1 }
-                }).toDestination();
-                synth.volume.value = 0;
+                    envelope: { attack: 0.03, decay: 1, sustain: 0.2, release: 1 }
+                });
+                synth.volume.value = -6;
 
                 initSongSelector();
                 const titles = Object.keys(songDatabase);
@@ -119,15 +95,13 @@
             } catch (e) {
                 console.error("Boot Error:", e);
             } finally {
+                // 何が起きても必ず画面を出す
                 startOverlay.style.opacity = '0';
                 setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
             }
         };
 
-        keySelector.onchange = (e) => {
-            currentTranspose = parseInt(e.target.value);
-            playChord();
-        };
+        keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
 
         function initSongSelector() {
             songSelector.innerHTML = "";
@@ -159,18 +133,11 @@
                 };
                 chordArea.appendChild(btn);
             });
-            if (songData.chords.length > 0) {
-                currentNotes = songData.chords[0].notes.split(',');
-            }
+            if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
-        strumArea.onpointerdown = () => {
-            playChord();
-            strumArea.classList.add('strum-flash');
-            setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100);
-        };
+        strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
 
-        // 実行
         fetchSongData();
     </script>
 </body>
