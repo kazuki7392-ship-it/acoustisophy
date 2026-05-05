@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.9 Pure Lyrics</title>
+    <title>AcoustiSophy - v6.11 Smart Defrag</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -292,26 +292,37 @@
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
+        // 自動抽出ボタンの処理（抽出する際に、G#dimなども柔軟に拾えるように正規表現化）
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value;
             if (!text) return alert("テキストを貼り付けてください！");
             const tokens = text.split(/[\s\n\t　]+/);
             let foundUniqueChords = new Set(); 
+            // 辞書依存ではなく「コードっぽい文字列か」で抽出する強力な正規表現
+            const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
+
             tokens.forEach(token => {
                 let cleanToken = token.trim();
-                if (masterChordDictionary[cleanToken]) foundUniqueChords.add(cleanToken);
+                // 日本語が含まれない ＆ コードっぽい文字なら抽出
+                if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && chordRegex.test(cleanToken)) {
+                    // もし辞書にあるコードならそのまま採用、無いもの（G#dimなど）は一番近い基本コードに丸めるか、無視するか
+                    // （抽出ドラムロールには限界があるので、ここでは辞書にあるものだけをセットするようフォールバック）
+                    let baseChord = masterChordDictionary[cleanToken] ? cleanToken : cleanToken.replace(/dim|aug|sus4|add9|m7-5/g, '');
+                    if(masterChordDictionary[baseChord]) {
+                        foundUniqueChords.add(baseChord);
+                    }
+                }
             });
-            if (foundUniqueChords.size === 0) return alert("コードが見つかりません。");
+            if (foundUniqueChords.size === 0) return alert("抽出できる基本コードが見つかりませんでした。");
             chordContainer.innerHTML = '';
             foundUniqueChords.forEach(chordName => {
                 let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1);
                 createChordDropdown(root, chordName.substring(root.length));
             });
-            alert(`${foundUniqueChords.size} 個のコードを抽出しました！`);
+            alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極のテキスト浄化処理（コードのみの行を完全抹消） ★★★
-        // ★★★ 究極のテキスト浄化 ＆ 詩の再構築（デフラグ）処理 ★★★
+        // ★★★ 究極の「デフラグ ＆ 日本語特化浄化」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
@@ -319,47 +330,48 @@
             // 1. U-FRET特有の「見えないゴミ文字（ゼロ幅スペース等）」を完全に消去
             rawLyrics = rawLyrics.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-            // 2. 行ごとに分割して前後スペースをトリム
-            let lines = rawLyrics.split('\n').map(line => line.trim());
+            // 2. 行ごとに分割
+            let lines = rawLyrics.split('\n');
 
-            // 3. コードだけの行を完璧な精度で消し去る
+            // 3. 【日本語絶対主義フィルター】
+            // その行に「ひらがな・カタカナ・漢字」が含まれていなければ、コード（または不要な英語）と見なして問答無用で削除！
             lines = lines.filter(line => {
-                if (line === "") return true; // 空行（段落の区切り）は残す
+                let trimmed = line.trim();
+                if (trimmed === "") return true; // 空行（段落の区切り用）は残す
                 
-                // 単語に分割し、空文字("")を配列から排除する（これが前回すり抜けた原因対策！）
-                let tokens = line.split(/[\s\t　]+/).filter(token => token !== "");
-                if (tokens.length === 0) return false;
-
-                // すべての単語がマスター辞書に存在するかチェック
-                let allTokensAreChords = tokens.every(token => masterChordDictionary[token]);
+                let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(trimmed);
+                // 日本語が含まれていないなら、削除（falseを返す）
+                if (!hasJapanese) return false; 
                 
-                return !allTokensAreChords; // すべてコードなら false（削除）、一つでも歌詞があれば true（残す）
+                return true; // 日本語が含まれているなら歌詞として残す
             });
 
-            // 4. 縦にバラバラにされた歌詞を、横1行に「再構築（結合）」する
-            let combinedLines = [];
-            let currentLineFragments = [];
+            // 4. 【スマート・コンバイン（デフラグ）】
+            // 縦に割られた歌詞を、空行の連続数を見て「スペース」か「改行」かで横に繋ぎ直す
+            let resultText = "";
+            let emptyCount = 0;
 
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i] === "") {
-                    // 空行が来たら、それまで溜めていた歌詞の断片をスペースで結合して1行にする
-                    if (currentLineFragments.length > 0) {
-                        combinedLines.push(currentLineFragments.join(' '));
-                        currentLineFragments = [];
-                    }
-                    combinedLines.push(""); // 空行自体も追加
+            for(let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line === "") {
+                    emptyCount++;
                 } else {
-                    // 歌詞の断片を溜め込む
-                    currentLineFragments.push(lines[i]);
+                    if (emptyCount >= 2) {
+                        // 2回以上空行があったら、それは新しいフレーズ（段落）とみなして本当に改行する
+                        resultText += "\n\n" + line;
+                    } else if (emptyCount === 1) {
+                        // 1回の空行なら、同じフレーズ内の単語の分断とみなして「スペース」で横に繋ぐ
+                        resultText += "　" + line;
+                    } else {
+                        // 空行なし（連続）の場合もスペースで横に繋ぐ
+                        resultText += (resultText === "" ? "" : "　") + line;
+                    }
+                    emptyCount = 0; // リセット
                 }
             }
-            // 最後に残った断片も結合
-            if (currentLineFragments.length > 0) {
-                combinedLines.push(currentLineFragments.join(' '));
-            }
 
-            // 5. 最終仕上げ：3つ以上の連続する改行を1行空きに圧縮
-            let cleanedLyrics = combinedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            // 最終仕上げのトリム
+            let cleanedLyrics = resultText.trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
             let hasError = false, errorChordName = "";
