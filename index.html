@@ -48,67 +48,68 @@
     </div>
 
     <script>
-    // ★ここにGASの最新URLを貼ってください
-    const GAS_URL = "https://script.google.com/macros/library/d/1ZGMn7-ySKkxi7v6T77TIK-_IipXE0iyK87nFlzI8Q4KfdI3XwY3lI9vM/4";
+    // ★最新の GAS URL に貼り直してください！
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyfdlnUcZAZRYSzCuvn8YYEr8SqYGGr6uofG_tl_9S-MtoGqB0xsgrnYeXcR3cCzXXD/exec";
 
+    
+// ★予備データ：通信失敗時でも「絶対に」これを表示させる
 let songDatabase = {
-    // ★バックアップ用データ：GASが死んでいても、最低限これが動く
-    "上を向いて歩こう(Local)": {
+    "【Offline】上を向いて歩こう": {
         chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }],
-        lyrics: `G  Em  C  D\n(Local Mode)\n上を向いて歩こう`
+        lyrics: "※現在オフラインです。GASの設定を確認してください。\nG  Em  C  D\n上を向いて歩こう..."
     }
-}; 
+};
 
-let synth;
-let currentNotes = []; 
-let currentTranspose = 0; 
-
-const startOverlay = document.getElementById('start-overlay');
-const startBtn = document.getElementById('start-btn');
-// 他の要素取得は省略（既存のまま）
-
-// ページ読み込み時にGASからデータを取得
 async function fetchSongData() {
-    console.log("GAS通信開始...");
     try {
-        const response = await fetch(GAS_URL);
-        if (!response.ok) throw new Error("Network response was not ok");
-        
+        // 10秒でタイムアウトさせる設定
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(GAS_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("Network Error");
+
         const data = await response.json();
-        if (Object.keys(data).length > 0) {
-            songDatabase = data; // 取得成功時のみ上書き
-            console.log("クラウド同期成功！", songDatabase);
+        if (data && Object.keys(data).length > 0) {
+            songDatabase = data; // 成功時のみ上書き
             startBtn.textContent = "Start AcoustiSophy";
             startBtn.style.backgroundColor = "#d4af37";
+            console.log("Cloud Sync Success!");
         }
     } catch (error) {
-        console.error("GAS連携失敗:", error);
-        // 失敗しても止まらないように、ボタンだけは押せるようにする
+        console.error("Connection Failed:", error);
         startBtn.textContent = "Start (Offline Mode)";
-        startBtn.style.backgroundColor = "#888";
+        startBtn.style.backgroundColor = "#666"; // 失敗時はグレーにする
     }
 }
 
-// 起動ボタン（絶対に画面を切り替えるマン）
-startBtn.addEventListener('click', async () => {
+// 起動ボタン：何が起きても「絶対に」画面を出す
+startBtn.onclick = async () => {
     try {
         await Tone.start();
-        synth = new Tone.PolySynth(Tone.PluckSynth).toDestination();
+        // 失敗に備えて PolySynth(Synth) をデフォルトにする
+        synth = new Tone.PolySynth(Tone.Synth).toDestination();
         
+        // 曲データの初期化
         initSongSelector();
-        const songTitles = Object.keys(songDatabase);
-        loadSong(songTitles[0]);
+        const titles = Object.keys(songDatabase);
+        if (titles.length > 0) {
+            loadSong(titles[0]);
+        } else {
+            alert("データが完全に空です。シートを確認してください。");
+        }
 
     } catch (e) {
-        console.error("起動プロセスエラー:", e);
+        console.error("Critical Boot Error:", e);
     } finally {
-        // ★たとえ何が起きても、絶対に黒い画面を消す！
+        // ★たとえエラーでも、黒い幕（オーバーレイ）を強制除去！
         startOverlay.style.opacity = '0';
         setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
     }
-});
+};
 
-// 最初にデータを読み込み開始
 fetchSongData();
     </script>
 </body>
