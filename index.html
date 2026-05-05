@@ -311,27 +311,55 @@
         };
 
         // ★★★ 究極のテキスト浄化処理（コードのみの行を完全抹消） ★★★
+        // ★★★ 究極のテキスト浄化 ＆ 詩の再構築（デフラグ）処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
             
-            let cleanedLyrics = rawLyrics
-                .split('\n')
-                .map(line => line.trim()) // 各行の前後のゴミスペースを消す
-                .filter(line => {
-                    if (line === "") return true; // 空行は段落のために残す
-                    
-                    // その行の単語をすべてチェック
-                    let tokens = line.split(/[\s\t　]+/);
-                    // 「行の中のすべての単語」がコード辞書に載っているか判定
-                    let allTokensAreChords = tokens.every(token => masterChordDictionary[token]);
-                    
-                    // もし「すべてコード」なら、その行は削除（falseを返す）
-                    return !allTokensAreChords; 
-                })
-                .join('\n')
-                .replace(/\n{3,}/g, '\n\n') // 無駄な連続改行を圧縮
-                .trim();
+            // 1. U-FRET特有の「見えないゴミ文字（ゼロ幅スペース等）」を完全に消去
+            rawLyrics = rawLyrics.replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+            // 2. 行ごとに分割して前後スペースをトリム
+            let lines = rawLyrics.split('\n').map(line => line.trim());
+
+            // 3. コードだけの行を完璧な精度で消し去る
+            lines = lines.filter(line => {
+                if (line === "") return true; // 空行（段落の区切り）は残す
+                
+                // 単語に分割し、空文字("")を配列から排除する（これが前回すり抜けた原因対策！）
+                let tokens = line.split(/[\s\t　]+/).filter(token => token !== "");
+                if (tokens.length === 0) return false;
+
+                // すべての単語がマスター辞書に存在するかチェック
+                let allTokensAreChords = tokens.every(token => masterChordDictionary[token]);
+                
+                return !allTokensAreChords; // すべてコードなら false（削除）、一つでも歌詞があれば true（残す）
+            });
+
+            // 4. 縦にバラバラにされた歌詞を、横1行に「再構築（結合）」する
+            let combinedLines = [];
+            let currentLineFragments = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i] === "") {
+                    // 空行が来たら、それまで溜めていた歌詞の断片をスペースで結合して1行にする
+                    if (currentLineFragments.length > 0) {
+                        combinedLines.push(currentLineFragments.join(' '));
+                        currentLineFragments = [];
+                    }
+                    combinedLines.push(""); // 空行自体も追加
+                } else {
+                    // 歌詞の断片を溜め込む
+                    currentLineFragments.push(lines[i]);
+                }
+            }
+            // 最後に残った断片も結合
+            if (currentLineFragments.length > 0) {
+                combinedLines.push(currentLineFragments.join(' '));
+            }
+
+            // 5. 最終仕上げ：3つ以上の連続する改行を1行空きに圧縮
+            let cleanedLyrics = combinedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
             let hasError = false, errorChordName = "";
