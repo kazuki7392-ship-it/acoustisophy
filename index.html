@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.2 Full</title>
+    <title>AcoustiSophy - v6.3 Ergonomic</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        /* 誤動作防止のバリア（ただし入力欄やボタンは例外にする魔法を付与） */
+        /* 誤動作防止のバリア（入力欄やボタンは例外） */
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; touch-action: auto !important; }
 
@@ -22,8 +22,10 @@
         #chord-area { width: 50%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 12px; }
         .chord-btn { background-color: #2a2a2a; color: #fff; font-size: 28px; font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; }
         .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
-        #strum-area { width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; justify-content: center; align-items: center; }
-        #strum-text { color: #555; font-size: 18px; }
+        #strum-area { width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 20px 0; position: relative; }
+        
+        /* 上下ストロークの目安となるガイドテキスト */
+        .strum-hint { color: #555; font-size: 14px; pointer-events: none; }
         .strum-flash { background: rgba(212, 175, 55, 0.2) !important; }
     </style>
 </head>
@@ -42,10 +44,12 @@
     </div>
     <div id="app-container">
         <div id="chord-area"></div>
-        <div id="strum-area"><div id="strum-text">Tap to Strum</div></div>
+        <div id="strum-area">
+            <div class="strum-hint">↑ UP (Fingers)</div>
+            <div class="strum-hint">↓ DOWN (Thumb)</div>
+        </div>
     </div>
 
-    <!-- 管理画面（曲の追加フォーム） -->
     <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
         <h2 style="color: #d4af37; margin-bottom: 20px;">Add New Song</h2>
         
@@ -55,11 +59,9 @@
         <label>Lyrics (Use \n for line breaks):</label>
         <textarea id="new-lyrics" rows="5" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;"></textarea>
         
-        <label>Chords (コードを順番に追加):</label>
-        <!-- ドラムロールが並ぶ場所 -->
+        <label>Chords (ルートと種類を選択):</label>
         <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
         
-        <!-- 追加・削除ボタン -->
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ コードを追加</button>
             <button type="button" id="remove-chord-btn" style="padding: 10px; background: #444; color: #ff6b6b; border: 1px solid #444; border-radius: 5px; cursor: pointer;">一個消す</button>
@@ -69,11 +71,10 @@
         <button id="close-admin" style="width: 100%; padding: 10px; background: #444; color: #fff; border: none; border-radius: 10px;">Cancel</button>
     </div>
 
-    <!-- 管理画面を開くボタン -->
     <button id="open-admin" style="position: fixed; bottom: 10px; right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
 
     <script>
-        // ★ここに /exec で終わる正しいURLを貼り付けてください！
+        // ★KazukiさんのGAS URL
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec"; 
 
         const startOverlay = document.getElementById('start-overlay');
@@ -86,7 +87,7 @@
 
         let songDatabase = { 
             "上を向いて歩こう": { 
-                chords: [{ name: "G", notes: "G3,B3,D4" }, { name: "Em", notes: "E3,G3,B3" }, { name: "C", notes: "C4,E4,G4" }, { name: "D", notes: "D4,F#4,A4" }], 
+                chords: [{ name: "G", notes: "G3,B3,D4" }], 
                 lyrics: "Loading data from Google Sheets..." 
             } 
         };
@@ -94,6 +95,7 @@
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
+        let activeNotes = []; // 鳴っている音の管理用
 
         // 1. GASから曲データを取得する
         async function fetchSongData() {
@@ -115,7 +117,7 @@
             }
         }
 
-        // 2. 起動ボタン（アコギ音源版）
+        // 2. 起動ボタン（本物のアコギ音源をロード）
         startBtn.onclick = async () => {
             try {
                 await Tone.start();
@@ -123,14 +125,8 @@
 
                 synth = new Tone.Sampler({
                     urls: {
-                        "A2": "A2.mp3",
-                        "C3": "C3.mp3",
-                        "E3": "E3.mp3",
-                        "G3": "G3.mp3",
-                        "A3": "A3.mp3",
-                        "C4": "C4.mp3",
-                        "E4": "E4.mp3",
-                        "G4": "G4.mp3"
+                        "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3",
+                        "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3"
                     },
                     baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
                     onload: () => {
@@ -164,24 +160,67 @@
                     document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
                     currentNotes = e.target.getAttribute('data-notes').split(',');
-                    playChord();
+                    
+                    // コードを切り替えたら、直前の音を止めてから鳴らす
+                    stopStrum();
+                    playStrum(e); 
                 };
                 chordArea.appendChild(btn);
             });
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // 4. 音を鳴らす
-        function playChord() {
+        // 4. 音を鳴らす（人間工学ストローク）
+        function playStrum(e) {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
-            currentNotes.forEach((note, index) => {
+
+            // どこをタップしたか判定（下半分＝ダウンストローク）
+            const rect = strumArea.getBoundingClientRect();
+            // e が無い場合（コードボタン直接タップ時）は中央として扱う
+            const yPos = e ? e.clientY - rect.top : rect.height / 2; 
+            const isDownstroke = yPos > rect.height / 2; 
+
+            // 筆圧対応
+            let velocity = (e && e.pressure) ? Math.max(0.3, e.pressure) : 0.8;
+
+            let notesToPlay = [...currentNotes];
+            if (!isDownstroke) {
+                notesToPlay.reverse(); // 上半分(アップ)は高音から低音へ
+            }
+
+            // ダウン(親指)は重く、アップ(指先)は軽く
+            const strokeSpeed = isDownstroke ? 0.03 : 0.02;
+
+            activeNotes = []; 
+
+            notesToPlay.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    synth.triggerAttackRelease(transposedNote, "2n", now + (index * 0.03));
-                } catch(e) { console.warn(e); }
+                    // ダウンストロークは少し強く鳴らす
+                    const currentVel = isDownstroke ? Math.min(1, velocity + 0.1) : velocity;
+                    synth.triggerAttack(transposedNote, now + (index * strokeSpeed), currentVel);
+                    activeNotes.push(transposedNote);
+                } catch(err) { console.warn(err); }
             });
+
+            strumArea.classList.add('strum-flash');
         }
+
+        // 音を止める（ミュート）
+        function stopStrum() {
+            if (!synth || activeNotes.length === 0) return;
+            const now = Tone.now();
+            activeNotes.forEach(note => { synth.triggerRelease(note, now); });
+            activeNotes = [];
+            strumArea.classList.remove('strum-flash');
+        }
+
+        // イベントリスナーの登録
+        strumArea.onpointerdown = playStrum;
+        strumArea.onpointerup = stopStrum;
+        strumArea.onpointerleave = stopStrum;
+        strumArea.onpointercancel = stopStrum;
 
         function initSongSelector() {
             const currentVal = songSelector.value;
@@ -195,17 +234,19 @@
             songSelector.onchange = (e) => loadSong(e.target.value);
         }
 
-        keySelector.onchange = (e) => { currentTranspose = parseInt(e.target.value); playChord(); };
-        strumArea.onpointerdown = () => { playChord(); strumArea.classList.add('strum-flash'); setTimeout(() => { strumArea.classList.remove('strum-flash'); }, 100); };
+        keySelector.onchange = (e) => { 
+            stopStrum();
+            currentTranspose = parseInt(e.target.value); 
+        };
 
-       // ==========================================
-        // 管理画面（Admin Panel）のロジック：デュアル・ドラムロール版
+        // ==========================================
+        // 5. 管理画面（デュアル・ドラムロール）
         // ==========================================
         const adminPanel = document.getElementById('admin-panel');
         document.getElementById('open-admin').onclick = () => adminPanel.style.display = 'block';
         document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
 
-        // ★1. 超・拡張版マスターコード辞書（裏側で合体した文字をここで判定します）
+        // 超・拡張版マスターコード辞書
         const masterChordDictionary = {
             "C": "C4,E4,G4", "Cm": "C4,Eb4,G4", "C7": "C4,E4,G4,Bb4", "Cm7": "C4,Eb4,G4,Bb4", "Csus4": "C4,F4,G4",
             "C#": "C#4,F4,G#4", "C#m": "C#4,E4,G#4", "C#7": "C#4,F4,G#4,B4", "C#m7": "C#4,E4,G#4,B4",
@@ -221,7 +262,6 @@
             "B": "B3,D#4,F#4", "Bm": "B3,D4,F#4", "B7": "B3,D#4,F#4,A4", "Bm7": "B3,D4,F#4,A4"
         };
 
-        // ★2. UIに表示する選択肢（ルートと種類）
         const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
         const qualityOptions = [
             { label: "Major (なし)", value: "" },
@@ -233,26 +273,22 @@
 
         const chordContainer = document.getElementById('chord-dropdown-container');
 
-        // ★3. 「+ コードを追加」ボタンの処理（カプセル型の2連ドラムロールを生成）
+        // コード追加ボタン（カプセル型）
         document.getElementById('add-chord-btn').onclick = () => {
-            // 2つのセレクトを包む外枠（ジョブズの美学：カプセル型デザイン）
             const wrapper = document.createElement('div');
             wrapper.className = 'chord-group';
             wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
 
-            // 左側：ルート音のドラムロール
             const rootSelect = document.createElement('select');
             rootSelect.className = 'root-select';
             rootSelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none; border-right: 1px solid rgba(0,0,0,0.2);";
             rootOptions.forEach(root => {
                 const opt = document.createElement('option');
                 opt.value = root; opt.textContent = root;
-                // 最初はCを選択状態にしておく
                 if(root === "C") opt.selected = true;
                 rootSelect.appendChild(opt);
             });
 
-            // 右側：種類のドラムロール
             const qualitySelect = document.createElement('select');
             qualitySelect.className = 'quality-select';
             qualitySelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
@@ -267,12 +303,11 @@
             chordContainer.appendChild(wrapper);
         };
 
-        // 一個消すボタン
         document.getElementById('remove-chord-btn').onclick = () => {
             if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild);
         };
 
-        // ★4. GASへの送信（ここで A と m を合体させて検証する）
+        // GASへの送信
         document.getElementById('submit-song').onclick = async () => {
             const title = document.getElementById('new-title').value;
             const lyrics = document.getElementById('new-lyrics').value;
@@ -284,27 +319,21 @@
             const chordsArray = Array.from(chordGroups).map(group => {
                 const root = group.querySelector('.root-select').value;
                 const quality = group.querySelector('.quality-select').value;
-                const combinedName = root + quality; // 例: "A" + "m" = "Am"
+                const combinedName = root + quality; 
 
-                // マスター辞書にその組み合わせが存在するかチェック（一護の安全装置）
                 if (!masterChordDictionary[combinedName]) {
                     hasError = true;
                     errorChordName = combinedName;
                 }
-
                 return { 
                     name: combinedName, 
-                    notes: masterChordDictionary[combinedName] || "C4,E4,G4" // エラー時はCメジャーで保護
+                    notes: masterChordDictionary[combinedName] || "C4,E4,G4" 
                 };
             });
 
             if (!title || !lyrics) return alert("曲名と歌詞は必須です！");
             if (chordsArray.length === 0) return alert("コードを最低1つは追加してください！");
-            
-            // 未対応の変な組み合わせ（Abのsus4など）が選ばれたら警告して止める
-            if (hasError) {
-                return alert(`「${errorChordName}」の組み合わせは現在未対応です！別のコードに変更してください。`);
-            }
+            if (hasError) return alert(`「${errorChordName}」は未対応です！変更してください。`);
 
             document.getElementById('submit-song').textContent = "Uploading...";
 
