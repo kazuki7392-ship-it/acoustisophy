@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.15 No Scroll Grid</title>
+    <title>AcoustiSophy - v6.15 No-Scroll Auto-Fit</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; touch-action: auto !important; }
 
-        body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-        #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
+        /* ★ KazukiさんのCSSと100dvhの融合 */
+        body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+        #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
         #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
         #controls { display: flex; gap: 10px; margin-bottom: 8px; }
@@ -23,7 +24,8 @@
             font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
         }
         
-        #app-container { display: flex; height: 60%; width: 100%; }
+        /* コンテナのはみ出し防止 */
+        #app-container { display: flex; height: 60%; width: 100%; overflow: hidden; min-height: 0; }
         
         /* ★ CSSの変更：スクロールを禁止し、JavaScriptからの上書きを待つ設定に */
         #chord-area { 
@@ -45,7 +47,7 @@
         }
         .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
         
-        #strum-area { width: 50%; background: linear-gradient(135deg, #111, #222); display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 20px 0; position: relative; }
+        #strum-area { width: 50%; height: 100%; background: linear-gradient(135deg, #111, #222); display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 20px 0; position: relative; }
         .strum-hint { color: #555; font-size: 14px; pointer-events: none; }
         .strum-flash { background: rgba(212, 175, 55, 0.2) !important; }
     </style>
@@ -157,29 +159,26 @@
             }
         };
 
-        // ★ コードを読み込む際に、個数に応じて画面分割を自動計算して「絶対に一画面に収める」魔法
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
             if (!songData) return;
             lyricDisplay.textContent = songData.lyrics;
             chordArea.innerHTML = ""; 
 
-            // ▼▼▼ ダイナミック・グリッド・アルゴリズム ▼▼▼
+            // ★ 追加：JSによる完全自動グリッド計算（No Scrollの実現）
             const chordCount = songData.chords.length;
-            let cols = 2; // デフォルトは2列
-            let rows = 2; // デフォルトは2行
+            let cols = 2, rows = 2;
+            
+            // コードの数に応じて自動でマス目を変更する魔法
+            if (chordCount <= 4) { cols = 2; rows = 2; } 
+            else if (chordCount <= 6) { cols = 2; rows = 3; } 
+            else if (chordCount <= 8) { cols = 2; rows = 4; } 
+            else if (chordCount <= 9) { cols = 3; rows = 3; } 
+            else if (chordCount <= 12) { cols = 3; rows = 4; } 
+            else { cols = 4; rows = Math.ceil(chordCount / 4); } 
 
-            if (chordCount <= 4) { cols = 2; rows = 2; }
-            else if (chordCount <= 6) { cols = 2; rows = 3; }
-            else if (chordCount <= 8) { cols = 2; rows = 4; } // 8個までは2列で耐える
-            else if (chordCount <= 9) { cols = 3; rows = 3; } // 9個なら3×3
-            else if (chordCount <= 12) { cols = 3; rows = 4; } // 12個なら3×4
-            else { cols = 4; rows = Math.ceil(chordCount / 4); } // それ以上は4列に分割
-
-            // 計算した列と行をCSSに強制上書き！これで絶対にはみ出さない！
             chordArea.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
             chordArea.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-            // ▲▲▲ ここまで ▲▲▲
 
             songData.chords.forEach((chord, index) => {
                 const btn = document.createElement('div');
@@ -378,6 +377,7 @@
 
             for(let i = 0; i < lines.length; i++) {
                 let line = lines[i];
+                
                 if (line === "") {
                     if (lyricBuffer.length > 0) flushBuffers();
                     continue;
