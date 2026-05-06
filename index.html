@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.15 No-Scroll Auto-Fit</title>
+    <title>AcoustiSophy - v6.17 Perfect Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; touch-action: auto !important; }
 
-        /* ★ KazukiさんのCSSと100dvhの融合 */
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
@@ -19,27 +18,24 @@
         #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
         
         #lyric-display { 
-            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.0; 
+            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; 
             white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px;
             font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
         }
         
-        /* コンテナのはみ出し防止 */
         #app-container { display: flex; height: 60%; width: 100%; overflow: hidden; min-height: 0; }
         
-        /* ★ CSSの変更：スクロールを禁止し、JavaScriptからの上書きを待つ設定に */
         #chord-area { 
             width: 50%; 
             display: grid; 
             gap: 10px; 
             padding: 12px; 
-            overflow: hidden; /* はみ出しを絶対に許さない（スクロール禁止） */
+            overflow: hidden; 
         }
         
-        /* ★ 文字が枠からはみ出さないように、画面幅に合わせて縮む魔法(clamp)を付与 */
         .chord-btn { 
             background-color: #2a2a2a; color: #fff; 
-            font-size: clamp(16px, 4vw, 32px); /* 最小16px, 最大32pxで自動調整 */
+            font-size: clamp(16px, 4vw, 32px); 
             font-weight: bold; border: 2px solid #444; border-radius: 12px; 
             display: flex; justify-content: center; align-items: center; 
             transition: background-color 0.2s; 
@@ -162,14 +158,17 @@
         function loadSong(songTitle) {
             const songData = songDatabase[songTitle];
             if (!songData) return;
-            lyricDisplay.textContent = songData.lyrics;
+            
+            // ★ コードハイライトの魔法：[Am]などの文字を金色＆太字に変換！
+            let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
+            const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
+            lyricDisplay.innerHTML = formattedLyrics;
+            
             chordArea.innerHTML = ""; 
 
-            // ★ 追加：JSによる完全自動グリッド計算（No Scrollの実現）
             const chordCount = songData.chords.length;
             let cols = 2, rows = 2;
             
-            // コードの数に応じて自動でマス目を変更する魔法
             if (chordCount <= 4) { cols = 2; rows = 2; } 
             else if (chordCount <= 6) { cols = 2; rows = 3; } 
             else if (chordCount <= 8) { cols = 2; rows = 4; } 
@@ -351,7 +350,7 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「完璧な楽譜生成（ステートマシン）」処理 ★★★
+        // ★★★ 究極の「インライン・シーケンシャル（順番通り）」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
@@ -360,18 +359,8 @@
             let lines = rawLyrics.split('\n').map(line => line.trim());
 
             let resultText = "";
-            let chordBuffer = [];
-            let lyricBuffer = [];
-
-            const flushBuffers = () => {
-                if (chordBuffer.length > 0 || lyricBuffer.length > 0) {
-                    if (chordBuffer.length > 0) resultText += chordBuffer.join("　　") + "\n";
-                    if (lyricBuffer.length > 0) resultText += lyricBuffer.join("") + "\n";
-                    resultText += "\n"; 
-                    chordBuffer = [];
-                    lyricBuffer = [];
-                }
-            };
+            let currentLine = "";
+            let pendingChords = [];
 
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
@@ -379,15 +368,36 @@
                 let line = lines[i];
                 
                 if (line === "") {
-                    if (lyricBuffer.length > 0) flushBuffers();
+                    // 空行が来たら、ポケットに残っているコードを出して改行
+                    if (pendingChords.length > 0) {
+                        currentLine += (currentLine ? " " : "") + pendingChords.map(c => `[${c}]`).join("");
+                        pendingChords = [];
+                    }
+                    if (currentLine !== "") {
+                        resultText += currentLine + "\n";
+                        currentLine = "";
+                    }
+                    resultText += "\n";
                     continue;
                 }
                 
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
                 
                 if (hasJapanese) {
-                    lyricBuffer.push(line.replace(/[\s\t　]+/g, ''));
+                    // 歌詞の断片が来たら、ポケットからコードを出してひっつける！
+                    let cleanLyric = line.replace(/[\s\t　]+/g, '');
+                    let chordStr = "";
+                    if (pendingChords.length > 0) {
+                        chordStr = pendingChords.map(c => `[${c}]`).join("");
+                        pendingChords = [];
+                        // 前のフレーズがあれば、間にスペースを空ける
+                        if (currentLine !== "") {
+                            currentLine += " "; 
+                        }
+                    }
+                    currentLine += chordStr + cleanLyric;
                 } else {
+                    // コード行が来たら、一旦ポケットにしまう！
                     let tokens = line.split(/[\s\t　]+/).filter(t => t !== "");
                     let validChords = tokens.filter(t => {
                         if (t.toUpperCase() === "N.C." || t.toUpperCase() === "NC") return true;
@@ -395,14 +405,17 @@
                     });
 
                     if (validChords.length > 0) {
-                        if (lyricBuffer.length > 0) {
-                            flushBuffers();
-                        }
-                        chordBuffer.push(...validChords);
+                        pendingChords.push(...validChords);
                     }
                 }
             }
-            flushBuffers();
+            
+            if (pendingChords.length > 0) {
+                currentLine += (currentLine ? " " : "") + pendingChords.map(c => `[${c}]`).join("");
+            }
+            if (currentLine !== "") {
+                resultText += currentLine + "\n";
+            }
 
             let cleanedLyrics = resultText.replace(/\n{3,}/g, '\n\n').trim();
             
