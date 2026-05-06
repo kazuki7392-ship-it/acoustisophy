@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.26 Auto Heal</title>
+    <title>AcoustiSophy - v6.27 Surgical Split</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -79,7 +79,7 @@
         <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集中は変更不可)</span>:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
         
-        <label>Lyrics & Chords (U-FRETのテキストをペースト):</label>
+        <label>Lyrics & Chords (スマホのコピペもそのままペースト！):</label>
         <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
         
         <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコードを自動抽出</button>
@@ -159,7 +159,6 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // 金色＆太字のコードハイライト
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
@@ -325,17 +324,44 @@
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
+        // ★★★ スマホ密着コピペを自動解剖（サージカルスプリット）する共通関数 ★★★
+        function surgicalSplit(initialTokens) {
+            let processedTokens = [];
+            // 「Am僕らの」のようにコード+日本語が密着しているキメラを暴き出す正規表現
+            const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
+
+            for (let t of initialTokens) {
+                let cleanT = t.replace(/\[|\]/g, ""); // すでに[Am]なら外す
+                let match = cleanT.match(gluedRegex);
+                
+                if (match) {
+                    let potentialChord = match[1];
+                    let lyricPart = match[2];
+                    // 前半が本当にコード（辞書にある、またはA~G始まり、またはN.C.）ならメスを入れる！
+                    if (potentialChord.toUpperCase().startsWith("N.C") || masterChordDictionary[potentialChord] || /^[A-G]/i.test(potentialChord)) {
+                        processedTokens.push(potentialChord); // 切断してコード化
+                        processedTokens.push(lyricPart);      // 切断して歌詞化
+                        continue;
+                    }
+                }
+                processedTokens.push(t); // 密着していなければそのまま
+            }
+            return processedTokens;
+        }
+
+        // 抽出ボタンにも密着コピペ分離を適用！
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value;
             if (!text) return alert("テキストを貼り付けてください！");
-            const tokens = text.split(/[\s\n\t　]+/);
+            
+            let rawTokens = text.split(/[\s\n\t　]+/);
+            let tokens = surgicalSplit(rawTokens); // ここでキメラを解体！
+
             let foundUniqueChords = new Set(); 
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
             tokens.forEach(token => {
-                let cleanToken = token.trim();
-                // [Am] などの括弧を外して判定
-                cleanToken = cleanToken.replace(/\[|\]/g, "");
+                let cleanToken = token.trim().replace(/\[|\]/g, "");
                 if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && chordRegex.test(cleanToken)) {
                     let baseChord = masterChordDictionary[cleanToken] ? cleanToken : cleanToken.replace(/dim|aug|sus4|add9|m7-5/g, '');
                     if(masterChordDictionary[baseChord]) {
@@ -352,48 +378,41 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「自己修復（オートヒール）＆ 完全ワンストリーム」処理 ★★★
+        // ★★★ 究極の「自己修復 ＆ スマホコピペ密着分離」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
-            // ゴミ文字を消去
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-            // 1. 古いデータの改行も、U-FRETの改行も、すべて「区切り文字」として完全に粉砕する！
-            let tokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
+            let initialTokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
+            
+            // ★ 新魔法：スマホの密着コピペ「Am僕らの」を「Am」と「僕らの」に切り離す！
+            let tokens = surgicalSplit(initialTokens);
 
             let resultText = "";
             let pendingChords = [];
-            // 括弧が付いた状態のコード [Am] にもマッチするように正規表現を強化
             const chordRegex = /^\[?[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?\]?$/i;
 
-            // 2. 順番に見ていき、絶対に改行させず横に繋ぐ！
             for (let token of tokens) {
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token);
 
                 if (!hasJapanese) {
-                    // 日本語がない場合はコードか判定（括弧を一旦外して辞書チェック）
                     let cleanToken = token.replace(/\[|\]/g, "");
-                    let isValidChord = (cleanToken.toUpperCase() === "N.C." || cleanToken.toUpperCase() === "NC" || chordRegex.test(token) || masterChordDictionary[cleanToken]);
+                    let isValidChord = (cleanToken.toUpperCase().startsWith("N.C") || chordRegex.test(token) || masterChordDictionary[cleanToken]);
                     
                     if (isValidChord) {
                         pendingChords.push(cleanToken);
                     }
                 } else {
-                    // 歌詞が来たら、溜まっていたコードと合体させて出力！
                     let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
-                    
-                    // 前に文字があれば全角スペースで隙間をあける
                     resultText += (resultText ? "　" : "") + chordStr + token;
                     pendingChords = [];
                 }
             }
             
-            // 最後に余ったコードがあればくっつける
             if (pendingChords.length > 0) {
                 resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join("");
             }
 
-            // ★ ここが神髄：resultText の中には、宇宙のどこを探しても「改行文字(\n)」は一つも存在しない！
             let cleanedLyrics = resultText;
             
             const chordGroups = document.querySelectorAll('.chord-group');
