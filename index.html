@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v7.0 Next Gen (Scroll & Real Chords)</title>
+    <title>AcoustiSophy - v8.0 Personal Key</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -12,12 +12,18 @@
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
-        #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
-        #controls { display: flex; gap: 10px; margin-bottom: 8px; }
-        #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
-        #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
         
-        /* ★ 自動スクロール用のコントロールパネル */
+        #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
+        
+        /* ★ キー設定用のUIエリアを大幅強化 */
+        #controls { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+        #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; }
+        
+        #key-control-group { display: flex; align-items: center; gap: 5px; background: #1a1a1a; padding: 4px; border-radius: 8px; border: 1px solid #444; }
+        #original-key-btn { background: #444; color: #aaa; border: none; padding: 8px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #original-key-btn.is-original { background: #d4af37; color: #1a1a1a; }
+        #key-selector { width: 70px; padding: 8px; background: #333; color: #d4af37; border: 1px solid #555; border-radius: 5px; font-weight: bold; text-align: center; }
+        
         #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
         #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: all 0.2s; }
         #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
@@ -27,7 +33,6 @@
             flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; 
             white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px;
             font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
-            scroll-behavior: smooth; /* スムーズなスクロール */
         }
         
         #app-container { display: flex; height: 60%; width: 100%; overflow: hidden; min-height: 0; }
@@ -60,16 +65,20 @@
     <div id="guide-area">
         <div id="controls">
             <select id="song-selector"></select>
-            <select id="key-selector">
-                <option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
-                <option value="0" selected>±0</option>
-                <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
-            </select>
+            <!-- ★ 原曲キーとMy Keyを管理する新UI -->
+            <div id="key-control-group">
+                <button id="original-key-btn">Original</button>
+                <select id="key-selector">
+                    <option value="7">+7</option><option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
+                    <option value="0" selected>±0</option>
+                    <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
+                </select>
+            </div>
         </div>
         <div id="scroll-controls">
             <button id="scroll-btn">▶ Scroll</button>
             <span class="speed-label">Speed</span>
-            <input type="range" id="scroll-speed" min="1" max="15" value="4">
+            <input type="range" id="scroll-speed" min="1" max="60" value="10">
         </div>
         <div id="lyric-display"></div>
     </div>
@@ -81,6 +90,7 @@
         </div>
     </div>
 
+    <!-- 管理画面 -->
     <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
         <h2 style="color: #d4af37; margin-bottom: 15px;">Admin Panel</h2>
         
@@ -88,10 +98,18 @@
             <option value="">✨ 新規作成 (Create New Song)</option>
         </select>
 
-        <label>Song Title <span id="title-lock-hint" style="font-size: 12px; color: #ff6b6b; display: none;">(編集中は変更不可)</span>:</label>
+        <label>Song Title:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
         
-        <label>Lyrics & Chords (スマホのコピペもそのままペースト！):</label>
+        <!-- ★ 原曲キーが譜面からどれくらいズレているかを設定する項目 -->
+        <label>譜面は原曲キーからいくつズレてる？ (Original Offset):</label>
+        <select id="original-offset" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
+            <option value="0">ズレなし (譜面通りが原曲キー)</option>
+            <option value="1">+1 (例: 原曲C#, 譜面C など)</option><option value="2">+2</option><option value="3">+3</option><option value="4">+4</option><option value="5">+5</option><option value="6">+6</option><option value="7">+7</option>
+            <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
+        </select>
+
+        <label>Lyrics & Chords:</label>
         <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
         
         <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコードを自動抽出</button>
@@ -100,7 +118,7 @@
         <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
         
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ 手動でコードを追加</button>
+            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ 手動で追加</button>
             <button type="button" id="remove-chord-btn" style="padding: 10px; background: #444; color: #ff6b6b; border: 1px solid #444; border-radius: 5px; cursor: pointer;">一個消す</button>
         </div>
         
@@ -116,21 +134,24 @@
         const startBtn = document.getElementById('start-btn');
         const songSelector = document.getElementById('song-selector');
         const keySelector = document.getElementById('key-selector');
+        const originalKeyBtn = document.getElementById('original-key-btn');
         const lyricDisplay = document.getElementById('lyric-display');
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
-        // ★ 自動スクロール用の変数群
         let isScrolling = false;
         let scrollAnimationFrame;
+        let currentScrollY = 0; 
+        let lastTime = 0;       
         const scrollBtn = document.getElementById('scroll-btn');
         const scrollSpeed = document.getElementById('scroll-speed');
 
-        let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading..." } };
+        let songDatabase = {}; // { "曲名": { chords: [], lyrics: "", originalOffset: 0 } }
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
         let activeNotes = []; 
+        let currentSongTitle = "";
 
         async function fetchSongData() {
             try {
@@ -157,13 +178,12 @@
                 synth = new Tone.Sampler({
                     urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
                     baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
-                    release: 1.8, // 音がプツッと切れないように余韻を少し長めに
+                    release: 1.8, 
                     onload: () => {
                         startOverlay.style.opacity = '0';
                         setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
                     }
                 }).toDestination();
-                // 構成音（弦）が6本に増えると爆音で音が割れる（クリッピング）危険があるため、マスターボリュームを少し下げる
                 synth.volume.value = -2;
 
                 initSongSelector();
@@ -174,21 +194,45 @@
             }
         };
 
+        // ★ キー状態のUI更新関数
+        function updateKeyUI(songData) {
+            const originalOffset = parseInt(songData.originalOffset || 0);
+            
+            // 原曲キーと同じ値が選ばれていたら、Originalボタンを光らせる
+            if (currentTranspose === originalOffset) {
+                originalKeyBtn.classList.add('is-original');
+                originalKeyBtn.textContent = "★ Original";
+            } else {
+                originalKeyBtn.classList.remove('is-original');
+                originalKeyBtn.textContent = "Original";
+            }
+            
+            // ドロップダウンの表示も更新
+            keySelector.value = currentTranspose;
+        }
+
         function loadSong(songTitle) {
+            currentSongTitle = songTitle;
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
+            // ★ LocalStorageから「My Key」を読み込む（なければ±0）
+            const savedKey = localStorage.getItem(`myKey_${songTitle}`);
+            currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
+            updateKeyUI(songData);
+
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
-            // 曲が変わったらスクロールを一番上に戻す
+            
             lyricDisplay.scrollTop = 0; 
+            currentScrollY = 0;
+            if (isScrolling) scrollBtn.click(); 
             
             chordArea.innerHTML = ""; 
 
             const chordCount = songData.chords.length;
             let cols = 2, rows = 2;
-            
             if (chordCount <= 4) { cols = 2; rows = 2; } 
             else if (chordCount <= 6) { cols = 2; rows = 3; } 
             else if (chordCount <= 8) { cols = 2; rows = 4; } 
@@ -218,14 +262,33 @@
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // ★ 自動スクロールの処理
+        // ★ My Keyを手動で変更した時（自動でLocalStorageに保存！）
+        keySelector.onchange = (e) => { 
+            softMute(); 
+            currentTranspose = parseInt(e.target.value); 
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); // 自動保存
+            updateKeyUI(songDatabase[currentSongTitle]);
+        };
+
+        // ★ Original Keyボタンを押した時（原曲キーに一発で戻る！）
+        originalKeyBtn.onclick = () => {
+            const songData = songDatabase[currentSongTitle];
+            if(!songData) return;
+            softMute();
+            currentTranspose = parseInt(songData.originalOffset || 0);
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); // 自動保存
+            updateKeyUI(songData);
+        };
+
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
             if (isScrolling) {
                 scrollBtn.textContent = "⏸ Pause";
                 scrollBtn.style.backgroundColor = "#d4af37";
                 scrollBtn.style.color = "#1a1a1a";
-                autoScroll();
+                currentScrollY = lyricDisplay.scrollTop; 
+                lastTime = performance.now(); 
+                scrollAnimationFrame = requestAnimationFrame(autoScroll);
             } else {
                 scrollBtn.textContent = "▶ Scroll";
                 scrollBtn.style.backgroundColor = "#333";
@@ -234,22 +297,22 @@
             }
         };
 
-        function autoScroll() {
+        function autoScroll(timestamp) {
             if (!isScrolling) return;
-            // スライダーの値（1〜15）に合わせて、1フレームあたりにスクロールするピクセル数を変える
-            lyricDisplay.scrollTop += (scrollSpeed.value * 0.1); 
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            const pixelsPerSecond = parseInt(scrollSpeed.value);
+            currentScrollY += pixelsPerSecond * (deltaTime / 1000);
+            lyricDisplay.scrollTop = currentScrollY;
+            if (lyricDisplay.scrollTop + lyricDisplay.clientHeight >= lyricDisplay.scrollHeight - 1) {
+                scrollBtn.click(); 
+                return;
+            }
             scrollAnimationFrame = requestAnimationFrame(autoScroll);
         }
 
-        // 演奏中に画面を触ったら、安全のために自動スクロールを一時停止する
-        lyricDisplay.addEventListener('touchstart', () => {
-            if (isScrolling) scrollBtn.click(); // ボタンを押した扱いにしてPause
-        }, { passive: true });
-        // PCのホイール操作時も停止
-        lyricDisplay.addEventListener('wheel', () => {
-            if (isScrolling) scrollBtn.click(); 
-        }, { passive: true });
-
+        lyricDisplay.addEventListener('touchstart', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
+        lyricDisplay.addEventListener('wheel', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
 
         function playStrum(e) {
             if (!synth || currentNotes.length === 0) return;
@@ -261,14 +324,12 @@
             let notesToPlay = [...currentNotes];
             if (!isDownstroke) notesToPlay.reverse(); 
 
-            // ジャラララーンというストロークの速度感
             const strokeSpeed = isDownstroke ? 0.025 : 0.015;
             activeNotes = []; 
 
             notesToPlay.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    // 音が多くなったので、少し優しく（ベロシティを抑え気味に）鳴らす
                     const currentVel = isDownstroke ? Math.min(0.8, velocity) : Math.max(0.3, velocity - 0.2);
                     synth.triggerAttack(transposedNote, now + (index * strokeSpeed), currentVel);
                     activeNotes.push(transposedNote);
@@ -305,17 +366,14 @@
             songSelector.onchange = (e) => loadSong(e.target.value);
         }
 
-        keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); };
-
         const adminPanel = document.getElementById('admin-panel');
         const adminModeSelector = document.getElementById('admin-mode-selector');
         const titleInput = document.getElementById('new-title');
+        const originalOffsetInput = document.getElementById('original-offset');
         const lyricsInput = document.getElementById('new-lyrics');
         const titleLockHint = document.getElementById('title-lock-hint');
         const chordContainer = document.getElementById('chord-dropdown-container');
 
-        // ★★★ 和音の構成音（リアル・ボイシング）メジャーアップデート！ ★★★
-        // 実際のギターの4〜6本の弦を鳴らした時の構成音に近づけました！
         const masterChordDictionary = {
             "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4",
             "C#": "C#3,F3,G#3,C#4,F4", "C#m": "C#3,G#3,C#4,E4,G#4", "C#7": "C#3,F3,B3,C#4,F4", "C#m7": "C#3,G#3,B3,E4,G#4",
@@ -350,10 +408,13 @@
             chordContainer.innerHTML = ''; 
             if (!selectedTitle) {
                 titleInput.value = ''; lyricsInput.value = ''; titleInput.readOnly = false; titleInput.style.opacity = '1'; titleLockHint.style.display = 'none';
+                originalOffsetInput.value = "0"; // リセット
             } else {
                 const song = songDatabase[selectedTitle];
                 titleInput.value = selectedTitle; titleInput.readOnly = true; titleInput.style.opacity = '0.6'; titleLockHint.style.display = 'inline';
                 lyricsInput.value = song.lyrics; 
+                originalOffsetInput.value = song.originalOffset !== undefined ? song.originalOffset : "0"; // 原曲ズレを読み込み
+                
                 song.chords.forEach(chord => {
                     let root = ""; let quality = "";
                     if (chord.name.length > 1 && (chord.name[1] === '#' || chord.name[1] === 'b')) {
@@ -389,7 +450,6 @@
             for (let t of initialTokens) {
                 let cleanT = t.replace(/\[|\]/g, ""); 
                 let match = cleanT.match(gluedRegex);
-                
                 if (match) {
                     let potentialChord = match[1];
                     let lyricPart = match[2];
@@ -434,6 +494,7 @@
 
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
+            const originalOffset = parseInt(originalOffsetInput.value); // ★ ズレ情報を取得
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
             let initialTokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
@@ -450,19 +511,14 @@
                     let cleanToken = token.replace(/\[|\]/g, "");
                     let isValidChord = (cleanToken.toUpperCase().startsWith("N.C") || chordRegex.test(token) || masterChordDictionary[cleanToken]);
                     
-                    if (isValidChord) {
-                        pendingChords.push(cleanToken);
-                    }
+                    if (isValidChord) { pendingChords.push(cleanToken); }
                 } else {
                     let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
                     resultText += (resultText ? "　" : "") + chordStr + token;
                     pendingChords = [];
                 }
             }
-            
-            if (pendingChords.length > 0) {
-                resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join("");
-            }
+            if (pendingChords.length > 0) { resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join(""); }
 
             let cleanedLyrics = resultText;
             
@@ -481,9 +537,13 @@
             document.getElementById('submit-song').textContent = "Uploading / Updating...";
 
             try {
+                // ★ GASへ送るデータに originalOffset を追加！
+                // ※重要：KazukiさんのGAS側（doPost）は変更しなくても、JSON.parse()でそのまま保存されます！
+                const payload = { title: title, lyrics: cleanedLyrics, chords: JSON.stringify(chordsArray), originalOffset: originalOffset };
+                
                 const response = await fetch(GAS_URL, {
                     method: "POST",
-                    body: JSON.stringify({ title: title, lyrics: cleanedLyrics, chords: JSON.stringify(chordsArray) })
+                    body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 if (result.status === "success") {
