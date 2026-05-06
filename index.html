@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.22 God Mapping</title>
+    <title>AcoustiSophy - v6.23 Absolute Inline</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -159,7 +159,6 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // 金色のコードハイライト
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
@@ -358,7 +357,7 @@
             return len;
         }
 
-        // ★★★ 究極の「視覚座標マッピング（空行耐性版）」処理 ★★★
+        // ★★★ 究極の「視覚座標 ＆ 絶対的・横一列結合（インライン）」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
@@ -368,29 +367,24 @@
 
             let resultText = "";
             let pendingChordLine = null;
-            let emptyCount = 0; // 空行の連続数をカウントするシールド
-            
+            let isNewLine = true; // 行の始まりかどうかを記録するフラグ
+
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
             for(let i = 0; i < lines.length; i++) {
                 let line = lines[i];
                 
-                // 空行が来た時はすぐにはパニックにならない
+                // 空行が来たら、待機中のコードを吐き出して「改行」する
                 if (line.trim() === "") {
-                    emptyCount++;
-                    continue;
-                }
-                
-                // もし空行が2回以上連続していたら、それは「Aメロ・Bメロの段落区切り」とみなす
-                if (emptyCount >= 2) {
                     if (pendingChordLine) {
                         let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
-                        resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
+                        resultText += (isNewLine ? "" : " ") + cTokens.map(c => `[${c}]`).join(" ");
                         pendingChordLine = null;
                     }
-                    resultText += "\n\n";
+                    resultText += "\n";
+                    isNewLine = true;
+                    continue;
                 }
-                emptyCount = 0; // カウントリセット
                 
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
                 
@@ -401,18 +395,19 @@
                         return chordRegex.test(t) || masterChordDictionary[t];
                     });
 
-                    // 完全にコードだけの行の場合
                     if (isValidChordLine && tokens.length > 0) {
+                        // 既に待機中のコードがあれば出力して横に繋ぐ
                         if (pendingChordLine) {
                             let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
-                            resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
+                            resultText += (isNewLine ? "" : " ") + cTokens.map(c => `[${c}]`).join(" ");
+                            isNewLine = false;
                         }
                         pendingChordLine = line; // 次の歌詞のために保持！
                     }
-                    // "4G" などの謎文字は完全に無視（捨てる）
                 } else {
-                    // 歌詞行が来た時、上にコードが待機していれば吸着させる！
+                    let appendedText = "";
                     if (pendingChordLine) {
+                        // ゴッド・マッピング（座標吸着）
                         let chords = [];
                         let cRegex = /[^\s\t　]+/g;
                         let cMatch;
@@ -441,26 +436,28 @@
                                 closest.assignedChords.push(c.text);
                             });
 
-                            let finalLine = chunks.map(ch => {
+                            appendedText = chunks.map(ch => {
                                 let cStr = ch.assignedChords.length > 0 ? ch.assignedChords.map(c => `[${c}]`).join("") : "";
                                 return cStr + ch.text;
-                            }).join(""); // U-FRETの無駄なスペースを消して詰める！
-
-                            resultText += finalLine + "\n";
+                            }).join("");
                         } else {
-                            resultText += line.trim() + "\n";
+                            appendedText = line.replace(/[\s\t　]+/g, '');
                         }
                         pendingChordLine = null;
                     } else {
-                        let tokens = line.trim().split(/[\s\t　]+/).filter(t=>t);
-                        resultText += tokens.join("") + "\n"; // コードが無い歌詞も詰める
+                        appendedText = line.replace(/[\s\t　]+/g, '');
                     }
+
+                    // ★ 改行せずに、スペースで横に繋ぎ続ける！！
+                    resultText += (isNewLine ? "" : " ") + appendedText;
+                    isNewLine = false;
                 }
             }
             
+            // 最後に余ったコードがあれば横に繋ぐ
             if (pendingChordLine) {
                 let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
-                resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
+                resultText += (isNewLine ? "" : " ") + cTokens.map(c => `[${c}]`).join(" ");
             }
 
             let cleanedLyrics = resultText.replace(/\n{3,}/g, '\n\n').trim();
