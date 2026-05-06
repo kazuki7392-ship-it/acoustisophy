@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.24 Bulletproof Inline</title>
+    <title>AcoustiSophy - v6.25 One Stream</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -88,7 +88,7 @@
         <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
         
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ 手持でコードを追加</button>
+            <button type="button" id="add-chord-btn" style="flex: 1; padding: 10px; background: #333; color: #d4af37; border: 1px dashed #d4af37; border-radius: 5px; cursor: pointer; font-weight: bold;">+ 手動でコードを追加</button>
             <button type="button" id="remove-chord-btn" style="padding: 10px; background: #444; color: #ff6b6b; border: 1px solid #444; border-radius: 5px; cursor: pointer;">一個消す</button>
         </div>
         
@@ -159,7 +159,7 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // 金色のコードハイライト
+            // 金色＆太字のコードハイライト（ワンストリームでも機能するように！）
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
@@ -350,70 +350,45 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「強制ブロック結合（インライン）」処理 ★★★
+        // ★★★ 究極の「完全粉砕 ＆ ワンストリーム再構築」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
-            let rawLines = rawLyrics.split('\n');
 
-            let blocks = [];
-            let currentBlock = [];
-            let emptyCount = 0;
-            
-            // 1. 空行が2つ以上連続した時だけを「段落の区切り」としてブロック分けする
-            for(let line of rawLines) {
-                if (line.trim() === "") {
-                    emptyCount++;
-                } else {
-                    if (emptyCount >= 2 && currentBlock.length > 0) {
-                        blocks.push(currentBlock);
-                        currentBlock = [];
-                    }
-                    currentBlock.push(line.trim());
-                    emptyCount = 0;
-                }
-            }
-            if (currentBlock.length > 0) blocks.push(currentBlock);
+            // 1. 全ての改行・スペース・タブを区切り文字として「単語」レベルまで完全に粉砕する！
+            let tokens = rawLyrics.split(/[\s\t\n　]+/).filter(t => t !== "");
 
             let resultText = "";
+            let pendingChords = [];
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
-            // 2. 各ブロックの中身を、問答無用で「横一列」に結合する！
-            for(let block of blocks) {
-                let blockText = "";
-                let pendingChords = [];
-                
-                for(let line of block) {
-                    let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
-                    
-                    if (!hasJapanese) {
-                        // コード行とみなしてポケットにしまう
-                        let tokens = line.split(/[\s\t　]+/).filter(t=>t);
-                        let isValidChord = tokens.every(t => t.toUpperCase() === "N.C." || t.toUpperCase() === "NC" || chordRegex.test(t) || masterChordDictionary[t]);
-                        
-                        if (isValidChord && tokens.length > 0) {
-                            pendingChords.push(...tokens);
-                        }
-                    } else {
-                        // 歌詞が来たら、ポケットのコードと一緒に横に繋ぐ！
-                        let cleanLyric = line.replace(/[\s\t　]+/g, ''); // U-FRETの変なスペースを消す
-                        let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
-                        
-                        blockText += (blockText ? " " : "") + chordStr + cleanLyric;
-                        pendingChords = [];
+            // 2. 単語を順番に見ていき、コードと歌詞を合体させて「1行の長い文章」を作る
+            for (let token of tokens) {
+                let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token);
+
+                if (!hasJapanese) {
+                    // コードの判定
+                    let isValidChord = (token.toUpperCase() === "N.C." || token.toUpperCase() === "NC" || chordRegex.test(token) || masterChordDictionary[token]);
+                    if (isValidChord) {
+                        pendingChords.push(token);
                     }
+                } else {
+                    // 歌詞の断片が来た！ ポケットのコードを全部吐き出してひっつける！
+                    let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
+                    
+                    // 前に文字があれば全角スペースで少し隙間をあける（読みやすさのため）
+                    resultText += (resultText ? "　" : "") + chordStr + token;
+                    pendingChords = [];
                 }
-                
-                // ブロックの最後に余ったコードがあれば横に繋ぐ
-                if (pendingChords.length > 0) {
-                    blockText += (blockText ? " " : "") + pendingChords.map(c => `[${c}]`).join("");
-                }
-                
-                // ブロックが終わったら、大きな改行を1つ入れる
-                resultText += blockText + "\n\n";
+            }
+            
+            // 最後に余ったコードがあればくっつける
+            if (pendingChords.length > 0) {
+                resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join("");
             }
 
-            let cleanedLyrics = resultText.trim();
+            // 連続しすぎた改行を戻す必要すらない。全てが1行の美しい文字列になる。
+            let cleanedLyrics = resultText;
             
             const chordGroups = document.querySelectorAll('.chord-group');
             let hasError = false, errorChordName = "";
