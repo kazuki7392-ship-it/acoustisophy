@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v8.0 Personal Key</title>
+    <title>AcoustiSophy - v8.1 Enharmonic Chords</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -15,7 +15,6 @@
         
         #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; }
         
-        /* ★ キー設定用のUIエリアを大幅強化 */
         #controls { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; }
         
@@ -65,7 +64,6 @@
     <div id="guide-area">
         <div id="controls">
             <select id="song-selector"></select>
-            <!-- ★ 原曲キーとMy Keyを管理する新UI -->
             <div id="key-control-group">
                 <button id="original-key-btn">Original</button>
                 <select id="key-selector">
@@ -101,7 +99,6 @@
         <label>Song Title:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
         
-        <!-- ★ 原曲キーが譜面からどれくらいズレているかを設定する項目 -->
         <label>譜面は原曲キーからいくつズレてる？ (Original Offset):</label>
         <select id="original-offset" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
             <option value="0">ズレなし (譜面通りが原曲キー)</option>
@@ -109,7 +106,7 @@
             <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
         </select>
 
-        <label>Lyrics & Chords:</label>
+        <label>Lyrics & Chords (スマホのコピペもそのままペースト！):</label>
         <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
         
         <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコードを自動抽出</button>
@@ -146,7 +143,7 @@
         const scrollBtn = document.getElementById('scroll-btn');
         const scrollSpeed = document.getElementById('scroll-speed');
 
-        let songDatabase = {}; // { "曲名": { chords: [], lyrics: "", originalOffset: 0 } }
+        let songDatabase = {}; 
         let synth;
         let currentNotes = []; 
         let currentTranspose = 0; 
@@ -194,11 +191,8 @@
             }
         };
 
-        // ★ キー状態のUI更新関数
         function updateKeyUI(songData) {
             const originalOffset = parseInt(songData.originalOffset || 0);
-            
-            // 原曲キーと同じ値が選ばれていたら、Originalボタンを光らせる
             if (currentTranspose === originalOffset) {
                 originalKeyBtn.classList.add('is-original');
                 originalKeyBtn.textContent = "★ Original";
@@ -206,8 +200,6 @@
                 originalKeyBtn.classList.remove('is-original');
                 originalKeyBtn.textContent = "Original";
             }
-            
-            // ドロップダウンの表示も更新
             keySelector.value = currentTranspose;
         }
 
@@ -216,7 +208,6 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // ★ LocalStorageから「My Key」を読み込む（なければ±0）
             const savedKey = localStorage.getItem(`myKey_${songTitle}`);
             currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
             updateKeyUI(songData);
@@ -262,21 +253,19 @@
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
-        // ★ My Keyを手動で変更した時（自動でLocalStorageに保存！）
         keySelector.onchange = (e) => { 
             softMute(); 
             currentTranspose = parseInt(e.target.value); 
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); // 自動保存
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
             updateKeyUI(songDatabase[currentSongTitle]);
         };
 
-        // ★ Original Keyボタンを押した時（原曲キーに一発で戻る！）
         originalKeyBtn.onclick = () => {
             const songData = songDatabase[currentSongTitle];
             if(!songData) return;
             softMute();
             currentTranspose = parseInt(songData.originalOffset || 0);
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); // 自動保存
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
             updateKeyUI(songData);
         };
 
@@ -374,21 +363,39 @@
         const titleLockHint = document.getElementById('title-lock-hint');
         const chordContainer = document.getElementById('chord-dropdown-container');
 
+        // ★★★ Db, D#, Gb, G#, A# を完全網羅したマスター辞書 ★★★
         const masterChordDictionary = {
             "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4",
+            
             "C#": "C#3,F3,G#3,C#4,F4", "C#m": "C#3,G#3,C#4,E4,G#4", "C#7": "C#3,F3,B3,C#4,F4", "C#m7": "C#3,G#3,B3,E4,G#4",
+            "Db": "C#3,F3,G#3,C#4,F4", "Dbm": "C#3,G#3,C#4,E4,G#4", "Db7": "C#3,F3,B3,C#4,F4", "Dbm7": "C#3,G#3,B3,E4,G#4",
+            
             "D": "D3,A3,D4,F#4", "Dm": "D3,A3,D4,F4", "D7": "D3,A3,C4,F#4", "Dm7": "D3,A3,C4,F4", "Dsus4": "D3,A3,D4,G4",
+            
+            "D#": "Eb3,G3,Bb3,Eb4,G4", "D#m": "Eb3,Gb3,Bb3,Eb4,Gb4", "D#7": "Eb3,G3,Db4,Eb4,G4",
             "Eb": "Eb3,G3,Bb3,Eb4,G4", "Ebm": "Eb3,Gb3,Bb3,Eb4,Gb4", "Eb7": "Eb3,G3,Db4,Eb4,G4",
+            
             "E": "E2,B2,E3,G#3,B3,E4", "Em": "E2,B2,E3,G3,B3,E4", "E7": "E2,B2,D3,G#3,B3,E4", "Em7": "E2,B2,D3,G3,B3,E4", "Esus4": "E2,B2,E3,A3,B3,E4",
+            
             "F": "F2,C3,F3,A3,C4,F4", "Fm": "F2,C3,F3,Ab3,C4,F4", "F7": "F2,C3,Eb3,A3,C4,F4", "Fm7": "F2,C3,Eb3,Ab3,C4,F4",
+            
             "F#": "F#2,C#3,F#3,A#3,C#4,F#4", "F#m": "F#2,C#3,F#3,A3,C#4,F#4", "F#7": "F#2,C#3,E3,A#3,C#4,F#4", "F#m7": "F#2,C#3,E3,A3,C#4,F#4",
+            "Gb": "F#2,C#3,F#3,A#3,C#4,F#4", "Gbm": "F#2,C#3,F#3,A3,C#4,F#4", "Gb7": "F#2,C#3,E3,A#3,C#4,F#4", "Gbm7": "F#2,C#3,E3,A3,C#4,F#4",
+            
             "G": "G2,B2,D3,G3,B3,G4", "Gm": "G2,D3,G3,Bb3,D4,G4", "G7": "G2,B2,D3,G3,B3,F4", "Gm7": "G2,D3,F3,Bb3,D4,G4", "Gsus4": "G2,D3,G3,C4,D4,G4",
+            
+            "G#": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "G#m": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "G#7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4",
             "Ab": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "Abm": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "Ab7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4",
+            
             "A": "A2,E3,A3,C#4,E4", "Am": "A2,E3,A3,C4,E4", "A7": "A2,E3,G3,C#4,E4", "Am7": "A2,E3,G3,C4,E4", "Asus4": "A2,E3,A3,D4,E4",
+            
+            "A#": "Bb2,F3,Bb3,D4,F4", "A#m": "Bb2,F3,Bb3,Db4,F4", "A#7": "Bb2,F3,Ab3,D4,F4",
             "Bb": "Bb2,F3,Bb3,D4,F4", "Bbm": "Bb2,F3,Bb3,Db4,F4", "Bb7": "Bb2,F3,Ab3,D4,F4",
+            
             "B": "B2,F#3,B3,D#4,F#4", "Bm": "B2,F#3,B3,D4,F#4", "B7": "B2,D#3,A3,B3,F#4", "Bm7": "B2,F#3,A3,D4,F#4"
         };
-        const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+        // ★ ドロップダウンの選択肢に Db, D#, Gb, G#, A# を追加！
+        const rootOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
         const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" } ];
 
         document.getElementById('open-admin').onclick = () => {
@@ -408,12 +415,12 @@
             chordContainer.innerHTML = ''; 
             if (!selectedTitle) {
                 titleInput.value = ''; lyricsInput.value = ''; titleInput.readOnly = false; titleInput.style.opacity = '1'; titleLockHint.style.display = 'none';
-                originalOffsetInput.value = "0"; // リセット
+                originalOffsetInput.value = "0"; 
             } else {
                 const song = songDatabase[selectedTitle];
                 titleInput.value = selectedTitle; titleInput.readOnly = true; titleInput.style.opacity = '0.6'; titleLockHint.style.display = 'inline';
                 lyricsInput.value = song.lyrics; 
-                originalOffsetInput.value = song.originalOffset !== undefined ? song.originalOffset : "0"; // 原曲ズレを読み込み
+                originalOffsetInput.value = song.originalOffset !== undefined ? song.originalOffset : "0"; 
                 
                 song.chords.forEach(chord => {
                     let root = ""; let quality = "";
@@ -494,7 +501,7 @@
 
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
-            const originalOffset = parseInt(originalOffsetInput.value); // ★ ズレ情報を取得
+            const originalOffset = parseInt(originalOffsetInput.value); 
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
             let initialTokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
@@ -537,8 +544,6 @@
             document.getElementById('submit-song').textContent = "Uploading / Updating...";
 
             try {
-                // ★ GASへ送るデータに originalOffset を追加！
-                // ※重要：KazukiさんのGAS側（doPost）は変更しなくても、JSON.parse()でそのまま保存されます！
                 const payload = { title: title, lyrics: cleanedLyrics, chords: JSON.stringify(chordsArray), originalOffset: originalOffset };
                 
                 const response = await fetch(GAS_URL, {
