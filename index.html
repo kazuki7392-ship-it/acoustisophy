@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.27 Surgical Split</title>
+    <title>AcoustiSophy - v7.0 Next Gen (Scroll & Real Chords)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -17,10 +17,17 @@
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; }
         #key-selector { width: 80px; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; }
         
+        /* ★ 自動スクロール用のコントロールパネル */
+        #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
+        #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
+        .speed-label { color: #888; font-size: 12px; font-weight: bold; }
+
         #lyric-display { 
             flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; 
             white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px;
             font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
+            scroll-behavior: smooth; /* スムーズなスクロール */
         }
         
         #app-container { display: flex; height: 60%; width: 100%; overflow: hidden; min-height: 0; }
@@ -58,6 +65,11 @@
                 <option value="0" selected>±0</option>
                 <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option>
             </select>
+        </div>
+        <div id="scroll-controls">
+            <button id="scroll-btn">▶ Scroll</button>
+            <span class="speed-label">Speed</span>
+            <input type="range" id="scroll-speed" min="1" max="15" value="4">
         </div>
         <div id="lyric-display"></div>
     </div>
@@ -108,6 +120,12 @@
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
 
+        // ★ 自動スクロール用の変数群
+        let isScrolling = false;
+        let scrollAnimationFrame;
+        const scrollBtn = document.getElementById('scroll-btn');
+        const scrollSpeed = document.getElementById('scroll-speed');
+
         let songDatabase = { "上を向いて歩こう": { chords: [{ name: "G", notes: "G3,B3,D4" }], lyrics: "Loading..." } };
         let synth;
         let currentNotes = []; 
@@ -139,13 +157,14 @@
                 synth = new Tone.Sampler({
                     urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
                     baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
-                    release: 1.5,
+                    release: 1.8, // 音がプツッと切れないように余韻を少し長めに
                     onload: () => {
                         startOverlay.style.opacity = '0';
                         setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
                     }
                 }).toDestination();
-                synth.volume.value = 5;
+                // 構成音（弦）が6本に増えると爆音で音が割れる（クリッピング）危険があるため、マスターボリュームを少し下げる
+                synth.volume.value = -2;
 
                 initSongSelector();
                 loadSong(songSelector.value || Object.keys(songDatabase)[0]);
@@ -162,6 +181,8 @@
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
+            // 曲が変わったらスクロールを一番上に戻す
+            lyricDisplay.scrollTop = 0; 
             
             chordArea.innerHTML = ""; 
 
@@ -197,6 +218,39 @@
             if (songData.chords.length > 0) currentNotes = songData.chords[0].notes.split(',');
         }
 
+        // ★ 自動スクロールの処理
+        scrollBtn.onclick = () => {
+            isScrolling = !isScrolling;
+            if (isScrolling) {
+                scrollBtn.textContent = "⏸ Pause";
+                scrollBtn.style.backgroundColor = "#d4af37";
+                scrollBtn.style.color = "#1a1a1a";
+                autoScroll();
+            } else {
+                scrollBtn.textContent = "▶ Scroll";
+                scrollBtn.style.backgroundColor = "#333";
+                scrollBtn.style.color = "#d4af37";
+                cancelAnimationFrame(scrollAnimationFrame);
+            }
+        };
+
+        function autoScroll() {
+            if (!isScrolling) return;
+            // スライダーの値（1〜15）に合わせて、1フレームあたりにスクロールするピクセル数を変える
+            lyricDisplay.scrollTop += (scrollSpeed.value * 0.1); 
+            scrollAnimationFrame = requestAnimationFrame(autoScroll);
+        }
+
+        // 演奏中に画面を触ったら、安全のために自動スクロールを一時停止する
+        lyricDisplay.addEventListener('touchstart', () => {
+            if (isScrolling) scrollBtn.click(); // ボタンを押した扱いにしてPause
+        }, { passive: true });
+        // PCのホイール操作時も停止
+        lyricDisplay.addEventListener('wheel', () => {
+            if (isScrolling) scrollBtn.click(); 
+        }, { passive: true });
+
+
         function playStrum(e) {
             if (!synth || currentNotes.length === 0) return;
             const now = Tone.now();
@@ -207,13 +261,15 @@
             let notesToPlay = [...currentNotes];
             if (!isDownstroke) notesToPlay.reverse(); 
 
-            const strokeSpeed = isDownstroke ? 0.03 : 0.02;
+            // ジャラララーンというストロークの速度感
+            const strokeSpeed = isDownstroke ? 0.025 : 0.015;
             activeNotes = []; 
 
             notesToPlay.forEach((note, index) => {
                 try {
                     const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                    const currentVel = isDownstroke ? Math.min(1, velocity + 0.1) : velocity;
+                    // 音が多くなったので、少し優しく（ベロシティを抑え気味に）鳴らす
+                    const currentVel = isDownstroke ? Math.min(0.8, velocity) : Math.max(0.3, velocity - 0.2);
                     synth.triggerAttack(transposedNote, now + (index * strokeSpeed), currentVel);
                     activeNotes.push(transposedNote);
                 } catch(err) { console.warn(err); }
@@ -258,19 +314,21 @@
         const titleLockHint = document.getElementById('title-lock-hint');
         const chordContainer = document.getElementById('chord-dropdown-container');
 
+        // ★★★ 和音の構成音（リアル・ボイシング）メジャーアップデート！ ★★★
+        // 実際のギターの4〜6本の弦を鳴らした時の構成音に近づけました！
         const masterChordDictionary = {
-            "C": "C4,E4,G4", "Cm": "C4,Eb4,G4", "C7": "C4,E4,G4,Bb4", "Cm7": "C4,Eb4,G4,Bb4", "Csus4": "C4,F4,G4", "Cadd9": "C4,E4,G4,D5",
-            "C#": "C#4,F4,G#4", "C#m": "C#4,E4,G#4", "C#7": "C#4,F4,G#4,B4", "C#m7": "C#4,E4,G#4,B4",
-            "D": "D4,F#4,A4", "Dm": "D4,F4,A4", "D7": "D4,F#4,A4,C5", "Dm7": "D4,F4,A4,C5", "Dsus4": "D4,G4,A4",
-            "Eb": "Eb4,G4,Bb4", "Ebm": "Eb4,Gb4,Bb4", "Eb7": "Eb4,G4,Bb4,Db5",
-            "E": "E3,G#3,B3", "Em": "E3,G3,B3", "E7": "E3,G#3,B3,D4", "Em7": "E3,G3,B3,D4", "Esus4": "E3,A3,B3",
-            "F": "F3,A3,C4", "Fm": "F3,Ab3,C4", "F7": "F3,A3,C4,Eb4", "Fm7": "F3,Ab3,C4,Eb4",
-            "F#": "F#3,A#3,C#4", "F#m": "F#3,A3,C#4", "F#7": "F#3,A#3,C#4,E4", "F#m7": "F#3,A3,C#4,E4",
-            "G": "G3,B3,D4", "Gm": "G3,Bb3,D4", "G7": "G3,B3,D4,F4", "Gm7": "G3,Bb3,D4,F4", "Gsus4": "G3,C4,D4",
-            "Ab": "Ab3,C4,Eb4", "Abm": "Ab3,Cb4,Eb4", "Ab7": "Ab3,C4,Eb4,Gb4",
-            "A": "A3,C#4,E4", "Am": "A3,C4,E4", "A7": "A3,C#4,E4,G4", "Am7": "A3,C4,E4,G4", "Asus4": "A3,D4,E4",
-            "Bb": "Bb3,D4,F4", "Bbm": "Bb3,Db4,F4", "Bb7": "Bb3,D4,F4,Ab4",
-            "B": "B3,D#4,F#4", "Bm": "B3,D4,F#4", "B7": "B3,D#4,F#4,A4", "Bm7": "B3,D4,F#4,A4"
+            "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4",
+            "C#": "C#3,F3,G#3,C#4,F4", "C#m": "C#3,G#3,C#4,E4,G#4", "C#7": "C#3,F3,B3,C#4,F4", "C#m7": "C#3,G#3,B3,E4,G#4",
+            "D": "D3,A3,D4,F#4", "Dm": "D3,A3,D4,F4", "D7": "D3,A3,C4,F#4", "Dm7": "D3,A3,C4,F4", "Dsus4": "D3,A3,D4,G4",
+            "Eb": "Eb3,G3,Bb3,Eb4,G4", "Ebm": "Eb3,Gb3,Bb3,Eb4,Gb4", "Eb7": "Eb3,G3,Db4,Eb4,G4",
+            "E": "E2,B2,E3,G#3,B3,E4", "Em": "E2,B2,E3,G3,B3,E4", "E7": "E2,B2,D3,G#3,B3,E4", "Em7": "E2,B2,D3,G3,B3,E4", "Esus4": "E2,B2,E3,A3,B3,E4",
+            "F": "F2,C3,F3,A3,C4,F4", "Fm": "F2,C3,F3,Ab3,C4,F4", "F7": "F2,C3,Eb3,A3,C4,F4", "Fm7": "F2,C3,Eb3,Ab3,C4,F4",
+            "F#": "F#2,C#3,F#3,A#3,C#4,F#4", "F#m": "F#2,C#3,F#3,A3,C#4,F#4", "F#7": "F#2,C#3,E3,A#3,C#4,F#4", "F#m7": "F#2,C#3,E3,A3,C#4,F#4",
+            "G": "G2,B2,D3,G3,B3,G4", "Gm": "G2,D3,G3,Bb3,D4,G4", "G7": "G2,B2,D3,G3,B3,F4", "Gm7": "G2,D3,F3,Bb3,D4,G4", "Gsus4": "G2,D3,G3,C4,D4,G4",
+            "Ab": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "Abm": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "Ab7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4",
+            "A": "A2,E3,A3,C#4,E4", "Am": "A2,E3,A3,C4,E4", "A7": "A2,E3,G3,C#4,E4", "Am7": "A2,E3,G3,C4,E4", "Asus4": "A2,E3,A3,D4,E4",
+            "Bb": "Bb2,F3,Bb3,D4,F4", "Bbm": "Bb2,F3,Bb3,Db4,F4", "Bb7": "Bb2,F3,Ab3,D4,F4",
+            "B": "B2,F#3,B3,D#4,F#4", "Bm": "B2,F#3,B3,D4,F#4", "B7": "B2,D#3,A3,B3,F#4", "Bm7": "B2,F#3,A3,D4,F#4"
         };
         const rootOptions = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
         const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" } ];
@@ -324,38 +382,34 @@
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
-        // ★★★ スマホ密着コピペを自動解剖（サージカルスプリット）する共通関数 ★★★
         function surgicalSplit(initialTokens) {
             let processedTokens = [];
-            // 「Am僕らの」のようにコード+日本語が密着しているキメラを暴き出す正規表現
             const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
 
             for (let t of initialTokens) {
-                let cleanT = t.replace(/\[|\]/g, ""); // すでに[Am]なら外す
+                let cleanT = t.replace(/\[|\]/g, ""); 
                 let match = cleanT.match(gluedRegex);
                 
                 if (match) {
                     let potentialChord = match[1];
                     let lyricPart = match[2];
-                    // 前半が本当にコード（辞書にある、またはA~G始まり、またはN.C.）ならメスを入れる！
                     if (potentialChord.toUpperCase().startsWith("N.C") || masterChordDictionary[potentialChord] || /^[A-G]/i.test(potentialChord)) {
-                        processedTokens.push(potentialChord); // 切断してコード化
-                        processedTokens.push(lyricPart);      // 切断して歌詞化
+                        processedTokens.push(potentialChord); 
+                        processedTokens.push(lyricPart);      
                         continue;
                     }
                 }
-                processedTokens.push(t); // 密着していなければそのまま
+                processedTokens.push(t); 
             }
             return processedTokens;
         }
 
-        // 抽出ボタンにも密着コピペ分離を適用！
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value;
             if (!text) return alert("テキストを貼り付けてください！");
             
             let rawTokens = text.split(/[\s\n\t　]+/);
-            let tokens = surgicalSplit(rawTokens); // ここでキメラを解体！
+            let tokens = surgicalSplit(rawTokens); 
 
             let foundUniqueChords = new Set(); 
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
@@ -378,14 +432,11 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「自己修復 ＆ スマホコピペ密着分離」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
             let initialTokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
-            
-            // ★ 新魔法：スマホの密着コピペ「Am僕らの」を「Am」と「僕らの」に切り離す！
             let tokens = surgicalSplit(initialTokens);
 
             let resultText = "";
