@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.13 Ultimate Score</title>
+    <title>AcoustiSophy - v6.14 Perfect Score</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -316,19 +316,20 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「歌詞の上にコードを表示する」デフラグ処理 ★★★
+        // ★★★ 究極の「完璧な楽譜生成（ステートマシン）」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
             
+            // 1. ゴーストスペースの消去
             rawLyrics = rawLyrics.replace(/[\u200B-\u200D\uFEFF]/g, '');
             let lines = rawLyrics.split('\n').map(line => line.trim());
 
             let resultText = "";
-            let chordBuffer = []; // 上に表示するコードを溜める
-            let lyricBuffer = []; // 下に表示する歌詞を溜める
+            let chordBuffer = [];
+            let lyricBuffer = [];
 
-            // 溜まったコードと歌詞を合体して出力する機能
+            // 溜まったコードと歌詞をセットで書き出す関数
             const flushBuffers = () => {
                 if (chordBuffer.length > 0 || lyricBuffer.length > 0) {
                     if (chordBuffer.length > 0) resultText += chordBuffer.join("　　") + "\n";
@@ -339,39 +340,47 @@
                 }
             };
 
+            const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
+
             for(let i = 0; i < lines.length; i++) {
                 let line = lines[i];
                 
                 if (line === "") {
-                    flushBuffers(); // 空行が来たら一区切り
+                    // 空行が来た時、すでに歌詞が溜まっていれば「フレーズの終わり」とみなして書き出す
+                    if (lyricBuffer.length > 0) flushBuffers();
                     continue;
                 }
                 
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
-                let isChordLine = false;
                 
-                if (!hasJapanese) {
-                    let tokens = line.split(/[\s\t　]+/);
-                    const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
-                    isChordLine = tokens.every(token => chordRegex.test(token) || masterChordDictionary[token]);
-                }
-                
-                if (isChordLine) {
-                    // もしすでに歌詞が入っているのに新しいコードが来たら、前のフレーズが完了したとみなす
-                    if (lyricBuffer.length > 0) {
-                        flushBuffers();
-                    }
-                    // コードを溜める（F G など横並びの場合も分割して綺麗に溜める）
-                    let tokens = line.split(/[\s\t　]+/).filter(t => t !== "");
-                    chordBuffer.push(...tokens);
+                if (hasJapanese) {
+                    // ★ 歌詞の場合：U-FRET特有の不自然なスペースを全部消して綺麗な日本語にする！
+                    lyricBuffer.push(line.replace(/[\s\t　]+/g, ''));
                 } else {
-                    // 歌詞なら溜める（あの飛 行機 もここでくっつく）
-                    lyricBuffer.push(line);
+                    // 英語や記号だけの場合：コードかどうか判定する
+                    let tokens = line.split(/[\s\t　]+/).filter(t => t !== "");
+                    
+                    // 本当にコード（または N.C.）と呼べるものだけを抽出する
+                    let validChords = tokens.filter(t => {
+                        if (t.toUpperCase() === "N.C." || t.toUpperCase() === "NC") return true;
+                        return chordRegex.test(t) || masterChordDictionary[t];
+                    });
+
+                    if (validChords.length > 0) {
+                        // ★ もしすでに前の歌詞が溜まっているのに「新しいコード」が来たら、前のフレーズが終わった証拠！
+                        if (lyricBuffer.length > 0) {
+                            flushBuffers();
+                        }
+                        // 純粋なコードだけをバッファに追加
+                        chordBuffer.push(...validChords);
+                    }
+                    // ★ validChords が 0件（つまり "4G" や "Intro" のような謎のゴミ）の場合は何もしない！完全に無視！
                 }
             }
-            flushBuffers(); // 最後の行を確実に出力
+            // 最後に残った分を書き出す
+            flushBuffers();
 
-            // 連続しすぎた改行だけを念のため整える
+            // 最終仕上げのトリム
             let cleanedLyrics = resultText.replace(/\n{3,}/g, '\n\n').trim();
             
             const chordGroups = document.querySelectorAll('.chord-group');
