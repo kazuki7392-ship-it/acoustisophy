@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.19 God Sync</title>
+    <title>AcoustiSophy - v6.20 Miracle Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -349,7 +349,6 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★ 全角・半角の「視覚的な幅」を計算する魔法の関数
         function getVisualLength(str) {
             let len = 0;
             for(let i = 0; i < str.length; i++) {
@@ -386,7 +385,6 @@
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
                 
                 if (!hasJapanese) {
-                    // コード行の候補
                     let tokens = line.trim().split(/[\s\t　]+/).filter(t=>t);
                     let isValidChordLine = tokens.every(t => {
                         if (t.toUpperCase() === "N.C." || t.toUpperCase() === "NC") return true;
@@ -398,10 +396,9 @@
                             let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
                             resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
                         }
-                        pendingChordLine = line; // ★元の空白を保ったまま保存（座標計算のため）
+                        pendingChordLine = line; 
                     }
                 } else {
-                    // 歌詞行が来た！ もし上にコード行が待機していれば、座標マッピングを開始！
                     if (pendingChordLine) {
                         let chords = [];
                         let cRegex = /[^\s\t　]+/g;
@@ -418,7 +415,6 @@
                         }
 
                         if (chunks.length > 0) {
-                            // 各コードを、一番「視覚座標（vPos）」が近い歌詞ブロックに吸着させる
                             chords.forEach(c => {
                                 let closest = chunks[0];
                                 let minDiff = Math.abs(c.vPos - closest.vPos);
@@ -432,7 +428,6 @@
                                 closest.assignedChords.push(c.text);
                             });
 
-                            // 吸着した結果を「[Am]歌詞」の形で結合
                             let finalLine = chunks.map(ch => {
                                 let cStr = ch.assignedChords.length > 0 ? ch.assignedChords.map(c => `[${c}]`).join("") : "";
                                 return cStr + ch.text;
@@ -444,14 +439,12 @@
                         }
                         pendingChordLine = null;
                     } else {
-                        // 上にコードがない歌詞行はそのまま整形して出力
                         let tokens = line.trim().split(/[\s\t　]+/).filter(t=>t);
                         resultText += tokens.join("　") + "\n";
                     }
                 }
             }
             
-            // 最後にコード行だけが余っていた場合の処理
             if (pendingChordLine) {
                 let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
                 resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
