@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.17 Perfect Sync</title>
+    <title>AcoustiSophy - v6.19 God Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -159,7 +159,6 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // ★ コードハイライトの魔法：[Am]などの文字を金色＆太字に変換！
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
@@ -350,32 +349,35 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「インライン・シーケンシャル（順番通り）」処理 ★★★
+        // ★ 全角・半角の「視覚的な幅」を計算する魔法の関数
+        function getVisualLength(str) {
+            let len = 0;
+            for(let i = 0; i < str.length; i++) {
+                len += (str.charCodeAt(i) > 255) ? 2 : 1;
+            }
+            return len;
+        }
+
+        // ★★★ 究極の「視覚座標マッピング（完全同期）」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
             let rawLyrics = lyricsInput.value;
             
             rawLyrics = rawLyrics.replace(/[\u200B-\u200D\uFEFF]/g, '');
-            let lines = rawLyrics.split('\n').map(line => line.trim());
+            let lines = rawLyrics.split('\n');
 
             let resultText = "";
-            let currentLine = "";
-            let pendingChords = [];
-
+            let pendingChordLine = null;
             const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
 
             for(let i = 0; i < lines.length; i++) {
                 let line = lines[i];
                 
-                if (line === "") {
-                    // 空行が来たら、ポケットに残っているコードを出して改行
-                    if (pendingChords.length > 0) {
-                        currentLine += (currentLine ? " " : "") + pendingChords.map(c => `[${c}]`).join("");
-                        pendingChords = [];
-                    }
-                    if (currentLine !== "") {
-                        resultText += currentLine + "\n";
-                        currentLine = "";
+                if (line.trim() === "") {
+                    if (pendingChordLine) {
+                        let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
+                        resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
+                        pendingChordLine = null;
                     }
                     resultText += "\n";
                     continue;
@@ -383,38 +385,76 @@
                 
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(line);
                 
-                if (hasJapanese) {
-                    // 歌詞の断片が来たら、ポケットからコードを出してひっつける！
-                    let cleanLyric = line.replace(/[\s\t　]+/g, '');
-                    let chordStr = "";
-                    if (pendingChords.length > 0) {
-                        chordStr = pendingChords.map(c => `[${c}]`).join("");
-                        pendingChords = [];
-                        // 前のフレーズがあれば、間にスペースを空ける
-                        if (currentLine !== "") {
-                            currentLine += " "; 
-                        }
-                    }
-                    currentLine += chordStr + cleanLyric;
-                } else {
-                    // コード行が来たら、一旦ポケットにしまう！
-                    let tokens = line.split(/[\s\t　]+/).filter(t => t !== "");
-                    let validChords = tokens.filter(t => {
+                if (!hasJapanese) {
+                    // コード行の候補
+                    let tokens = line.trim().split(/[\s\t　]+/).filter(t=>t);
+                    let isValidChordLine = tokens.every(t => {
                         if (t.toUpperCase() === "N.C." || t.toUpperCase() === "NC") return true;
                         return chordRegex.test(t) || masterChordDictionary[t];
                     });
 
-                    if (validChords.length > 0) {
-                        pendingChords.push(...validChords);
+                    if (isValidChordLine && tokens.length > 0) {
+                        if (pendingChordLine) {
+                            let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
+                            resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
+                        }
+                        pendingChordLine = line; // ★元の空白を保ったまま保存（座標計算のため）
+                    }
+                } else {
+                    // 歌詞行が来た！ もし上にコード行が待機していれば、座標マッピングを開始！
+                    if (pendingChordLine) {
+                        let chords = [];
+                        let cRegex = /[^\s\t　]+/g;
+                        let cMatch;
+                        while ((cMatch = cRegex.exec(pendingChordLine)) !== null) {
+                            chords.push({ text: cMatch[0], vPos: getVisualLength(pendingChordLine.substring(0, cMatch.index)) });
+                        }
+
+                        let chunks = [];
+                        let lRegex = /[^\s\t　]+/g;
+                        let lMatch;
+                        while ((lMatch = lRegex.exec(line)) !== null) {
+                            chunks.push({ text: lMatch[0], vPos: getVisualLength(line.substring(0, lMatch.index)), assignedChords: [] });
+                        }
+
+                        if (chunks.length > 0) {
+                            // 各コードを、一番「視覚座標（vPos）」が近い歌詞ブロックに吸着させる
+                            chords.forEach(c => {
+                                let closest = chunks[0];
+                                let minDiff = Math.abs(c.vPos - closest.vPos);
+                                for (let j = 1; j < chunks.length; j++) {
+                                    let diff = Math.abs(c.vPos - chunks[j].vPos);
+                                    if (diff < minDiff) {
+                                        minDiff = diff;
+                                        closest = chunks[j];
+                                    }
+                                }
+                                closest.assignedChords.push(c.text);
+                            });
+
+                            // 吸着した結果を「[Am]歌詞」の形で結合
+                            let finalLine = chunks.map(ch => {
+                                let cStr = ch.assignedChords.length > 0 ? ch.assignedChords.map(c => `[${c}]`).join("") : "";
+                                return cStr + ch.text;
+                            }).join("　");
+
+                            resultText += finalLine + "\n";
+                        } else {
+                            resultText += line.trim() + "\n";
+                        }
+                        pendingChordLine = null;
+                    } else {
+                        // 上にコードがない歌詞行はそのまま整形して出力
+                        let tokens = line.trim().split(/[\s\t　]+/).filter(t=>t);
+                        resultText += tokens.join("　") + "\n";
                     }
                 }
             }
             
-            if (pendingChords.length > 0) {
-                currentLine += (currentLine ? " " : "") + pendingChords.map(c => `[${c}]`).join("");
-            }
-            if (currentLine !== "") {
-                resultText += currentLine + "\n";
+            // 最後にコード行だけが余っていた場合の処理
+            if (pendingChordLine) {
+                let cTokens = pendingChordLine.trim().split(/[\s\t　]+/).filter(t=>t);
+                resultText += cTokens.map(c => `[${c}]`).join(" ") + "\n";
             }
 
             let cleanedLyrics = resultText.replace(/\n{3,}/g, '\n\n').trim();
