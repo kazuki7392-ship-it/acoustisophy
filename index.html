@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v6.25 One Stream</title>
+    <title>AcoustiSophy - v6.26 Auto Heal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -159,7 +159,7 @@
             const songData = songDatabase[songTitle];
             if (!songData) return;
             
-            // 金色＆太字のコードハイライト（ワンストリームでも機能するように！）
+            // 金色＆太字のコードハイライト
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
@@ -334,6 +334,8 @@
 
             tokens.forEach(token => {
                 let cleanToken = token.trim();
+                // [Am] などの括弧を外して判定
+                cleanToken = cleanToken.replace(/\[|\]/g, "");
                 if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && chordRegex.test(cleanToken)) {
                     let baseChord = masterChordDictionary[cleanToken] ? cleanToken : cleanToken.replace(/dim|aug|sus4|add9|m7-5/g, '');
                     if(masterChordDictionary[baseChord]) {
@@ -350,33 +352,37 @@
             alert(`${foundUniqueChords.size} 個の基本コードを抽出しました！`);
         };
 
-        // ★★★ 究極の「完全粉砕 ＆ ワンストリーム再構築」処理 ★★★
+        // ★★★ 究極の「自己修復（オートヒール）＆ 完全ワンストリーム」処理 ★★★
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value;
+            // ゴミ文字を消去
             let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
-            // 1. 全ての改行・スペース・タブを区切り文字として「単語」レベルまで完全に粉砕する！
-            let tokens = rawLyrics.split(/[\s\t\n　]+/).filter(t => t !== "");
+            // 1. 古いデータの改行も、U-FRETの改行も、すべて「区切り文字」として完全に粉砕する！
+            let tokens = rawLyrics.split(/[\s\t\n\r　]+/).filter(t => t !== "");
 
             let resultText = "";
             let pendingChords = [];
-            const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?$/i;
+            // 括弧が付いた状態のコード [Am] にもマッチするように正規表現を強化
+            const chordRegex = /^\[?[A-G][#b]?(m|M|add|sus|dim|aug|maj|)?\d*(\-[0-9])?(\/[A-G][#b]?)?\]?$/i;
 
-            // 2. 単語を順番に見ていき、コードと歌詞を合体させて「1行の長い文章」を作る
+            // 2. 順番に見ていき、絶対に改行させず横に繋ぐ！
             for (let token of tokens) {
                 let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token);
 
                 if (!hasJapanese) {
-                    // コードの判定
-                    let isValidChord = (token.toUpperCase() === "N.C." || token.toUpperCase() === "NC" || chordRegex.test(token) || masterChordDictionary[token]);
+                    // 日本語がない場合はコードか判定（括弧を一旦外して辞書チェック）
+                    let cleanToken = token.replace(/\[|\]/g, "");
+                    let isValidChord = (cleanToken.toUpperCase() === "N.C." || cleanToken.toUpperCase() === "NC" || chordRegex.test(token) || masterChordDictionary[cleanToken]);
+                    
                     if (isValidChord) {
-                        pendingChords.push(token);
+                        pendingChords.push(cleanToken);
                     }
                 } else {
-                    // 歌詞の断片が来た！ ポケットのコードを全部吐き出してひっつける！
+                    // 歌詞が来たら、溜まっていたコードと合体させて出力！
                     let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
                     
-                    // 前に文字があれば全角スペースで少し隙間をあける（読みやすさのため）
+                    // 前に文字があれば全角スペースで隙間をあける
                     resultText += (resultText ? "　" : "") + chordStr + token;
                     pendingChords = [];
                 }
@@ -387,7 +393,7 @@
                 resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join("");
             }
 
-            // 連続しすぎた改行を戻す必要すらない。全てが1行の美しい文字列になる。
+            // ★ ここが神髄：resultText の中には、宇宙のどこを探しても「改行文字(\n)」は一つも存在しない！
             let cleanedLyrics = resultText;
             
             const chordGroups = document.querySelectorAll('.chord-group');
