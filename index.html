@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v8.5 Reverse Strum & Safe Zone</title>
+    <title>AcoustiSophy - v8.6 Luminous Strings</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { 
@@ -54,21 +54,58 @@
         .chord-btn.dragging { opacity: 0.8; transform: scale(1.05); z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.5); animation: none; }
         .chord-placeholder { border: 2px dashed #d4af37; background: transparent; border-radius: 12px; }
         
-        /* ★ ストロークエリア：上下幅を中央に寄せ、セーフゾーンを確保 */
         #strum-area-container { width: 40%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #111; border-left: 1px solid #333; }
+        
         #strum-area { 
-            width: 90%; 
-            height: 75%; /* ★ 上下幅を短縮（中央寄せ） */
-            background: linear-gradient(135deg, #111, #222); 
+            width: 90%; height: 75%; 
+            background: linear-gradient(135deg, #111, #1a1a1a); 
             border-radius: 20px;
             display: flex; flex-direction: column; justify-content: space-between; align-items: center; 
-            padding: 40px 0; /* 内側にさらに余白を設けて弦を中央に寄せる */
-            position: relative; touch-action: none;
+            padding: 40px 0; position: relative; touch-action: none;
             box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1);
         }
-        .strum-hint { color: #444; font-size: 12px; pointer-events: none; z-index: 2; font-weight: bold; }
-        .string-ripple { position: absolute; width: 100%; height: 4px; background: rgba(212, 175, 55, 0.6); box-shadow: 0 0 10px rgba(212, 175, 55, 0.8); left: 0; pointer-events: none; opacity: 1; transition: opacity 0.3s, transform 0.3s; transform: scaleY(1); }
-        .string-ripple.fade { opacity: 0; transform: scaleY(3); }
+        
+        .strum-hint { color: #555; font-size: 12px; pointer-events: none; z-index: 10; font-weight: bold; }
+        
+        /* ★ 光の弦（ルミナス・ストリングス）のコンテナとデザイン */
+        #visual-strings-container {
+            position: absolute;
+            top: 40px; /* strum-areaのpaddingに合わせる */
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly; /* 弦を均等に配置 */
+            align-items: center;
+            pointer-events: none; /* ★ 超重要：タッチを阻害しない！ */
+            z-index: 5;
+        }
+
+        .string-zone {
+            flex-grow: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .visual-string {
+            width: 90%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(212,175,55,0.1), rgba(212,175,55,0.5), rgba(212,175,55,0.1));
+            box-shadow: 0 0 5px rgba(212,175,55,0.3);
+            border-radius: 2px;
+            transition: all 0.15s ease-out; /* なめらかに光が引く */
+        }
+
+        /* 弦を弾いた瞬間の発光アニメーション */
+        .visual-string.plucked {
+            height: 4px;
+            background: linear-gradient(90deg, rgba(255,255,255,0.4), #fff, rgba(255,255,255,0.4));
+            box-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 5px #d4af37;
+            transform: scaleY(1.5);
+        }
     </style>
 </head>
 <body>
@@ -107,6 +144,7 @@
         <div id="strum-area-container">
             <div id="strum-area">
                 <div class="strum-hint">↑ 高音 (High)</div>
+                <div id="visual-strings-container"></div>
                 <div class="strum-hint">↓ 低音 (Low)</div>
             </div>
         </div>
@@ -152,6 +190,7 @@
         const lyricDisplay = document.getElementById('lyric-display');
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
+        const stringsContainer = document.getElementById('visual-strings-container'); // ★ 追加
         
         const editHeader = document.getElementById('edit-header');
         const resetOrderBtn = document.getElementById('reset-order-btn');
@@ -256,7 +295,14 @@
                     });
                 } catch(e) { currentChordsArray = [...originalChordsArray]; }
             } else { currentChordsArray = [...originalChordsArray]; }
+            
             renderChords();
+            
+            // 曲読み込み完了時に最初のコードの弦を描画
+            if (currentChordsArray.length > 0 && !isEditMode) {
+                currentNotes = currentChordsArray[0].notes.split(',');
+                drawVisualStrings(); // ★ 追加
+            }
         }
 
         function renderChords() {
@@ -277,6 +323,7 @@
                 if (index === 0 && !isEditMode) btn.classList.add('active'); 
                 btn.textContent = chord.name;
                 btn.setAttribute('data-notes', chord.notes);
+                btn.setAttribute('data-index', index);
                 btn.addEventListener('pointerdown', handlePointerDown);
                 btn.addEventListener('pointerup', handlePointerUp);
                 btn.addEventListener('pointermove', handlePointerMove);
@@ -284,7 +331,30 @@
                 if(isEditMode) btn.classList.add('jiggling');
                 chordArea.appendChild(btn);
             });
-            if (currentChordsArray.length > 0 && !isEditMode) currentNotes = currentChordsArray[0].notes.split(',');
+        }
+
+        // ★ 弦を動的に描画する関数
+        function drawVisualStrings() {
+            stringsContainer.innerHTML = ''; // 一旦クリア
+            const count = currentNotes.length;
+            if (count === 0) return;
+
+            // countの数だけ弦を作る（上から高音→低音）
+            for (let i = 0; i < count; i++) {
+                const zone = document.createElement('div');
+                zone.className = 'string-zone';
+                
+                const str = document.createElement('div');
+                str.className = 'visual-string';
+                
+                // ★ IDの付与ルール：
+                // ストロークの計算は、下から上へスワイプした時に 0, 1, 2... となる。
+                // 画面のDOMは「上から下」へ作られるため、一番上の要素が最高音（count - 1）になる。
+                str.id = 'v-string-' + ((count - 1) - i);
+                
+                zone.appendChild(str);
+                stringsContainer.appendChild(zone);
+            }
         }
 
         function handlePointerDown(e) {
@@ -295,10 +365,15 @@
                 enterEditMode(); 
                 startDrag(initialPointerEvent, element);
             }, 800);
+            
             if (this.classList.contains('active')) { forceMute(); return; }
             document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
+            
+            // コードが変更されたら notes を更新し、弦を引き直す
             currentNotes = this.getAttribute('data-notes').split(',');
+            drawVisualStrings(); // ★ 追加
+            
             softMute();
         }
 
@@ -336,6 +411,7 @@
             if(firstBtn) {
                 firstBtn.classList.add('active');
                 currentNotes = firstBtn.getAttribute('data-notes').split(',');
+                drawVisualStrings(); // ★ 追加
             }
         }
 
@@ -438,8 +514,7 @@
         lyricDisplay.addEventListener('touchstart', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
         lyricDisplay.addEventListener('wheel', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
 
-
-        // ★★★ ストローク方向の反転 ＆ セーフゾーン完全対応 ★★★
+        // ★★★ ストローク処理 ＆ 発光アニメーション ★★★
         let isStrumming = false;
         let pluckedStrings = new Set();
         let strumRect;
@@ -450,7 +525,9 @@
             isStrumming = true;
             pluckedStrings.clear();
             lastStringIndex = -1;
-            strumRect = strumArea.getBoundingClientRect();
+            
+            // 弦のコンテナの座標を基準にする
+            strumRect = stringsContainer.getBoundingClientRect();
             strumArea.setPointerCapture(e.pointerId);
             processStrum(e);
         });
@@ -470,8 +547,7 @@
             const stringCount = currentNotes.length;
             const stringSpacing = strumRect.height / stringCount;
             
-            // ★ 並び順を逆に計算：下が0（低音）、上が最大（高音）
-            // stringIndex = (弦の総数 - 1) - floor(位置 / 弦の間隔)
+            // 下が0（低音）、上が最大（高音）
             let stringIndex = (stringCount - 1) - Math.floor(yPos / stringSpacing);
 
             if (stringIndex < 0) stringIndex = 0;
@@ -481,17 +557,17 @@
                 const step = stringIndex > lastStringIndex ? 1 : -1;
                 let i = lastStringIndex + step;
                 while (true) {
-                    if (!pluckedStrings.has(i)) { triggerString(i, e.pressure, e.clientY - strumRect.top); }
+                    if (!pluckedStrings.has(i)) { triggerString(i, e.pressure); }
                     if (i === stringIndex) break;
                     i += step;
                 }
             } else if (lastStringIndex === -1) {
-                triggerString(stringIndex, e.pressure, yPos);
+                triggerString(stringIndex, e.pressure);
             }
             lastStringIndex = stringIndex;
         }
 
-        function triggerString(index, pressure, yPos) {
+        function triggerString(index, pressure) {
             pluckedStrings.add(index);
             const note = currentNotes[index];
             if (!note) return;
@@ -499,17 +575,16 @@
                 const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
                 let velocity = pressure ? Math.max(0.3, pressure) : 0.8;
                 synth.triggerAttack(transposedNote, Tone.now(), velocity);
-                showRipple(yPos);
+                
+                // ★ 視覚的フィードバック（弦を発光させる）
+                const vStr = document.getElementById('v-string-' + index);
+                if (vStr) {
+                    vStr.classList.add('plucked');
+                    // 0.15秒後に発光を消す
+                    setTimeout(() => { vStr.classList.remove('plucked'); }, 150);
+                }
+                
             } catch(err) { console.warn(err); }
-        }
-
-        function showRipple(yPos) {
-            const ripple = document.createElement('div');
-            ripple.className = 'string-ripple';
-            ripple.style.top = yPos + 'px';
-            strumArea.appendChild(ripple);
-            setTimeout(() => { ripple.classList.add('fade'); }, 10);
-            setTimeout(() => { ripple.remove(); }, 310);
         }
 
         function softMute() {
