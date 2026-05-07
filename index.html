@@ -3,115 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v8.6 Luminous Strings</title>
+    <title>AcoustiSophy - v9.1 Shape-Shift Grid</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        * { 
-            box-sizing: border-box; margin: 0; padding: 0; 
-            user-select: none; -webkit-user-select: none; 
-            -webkit-touch-callout: none; touch-action: manipulation; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; -webkit-user-select: auto !important; touch-action: auto !important; }
-
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+        
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
         
-        #guide-area { height: 40%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; position: relative; }
+        #mode-switch { display: flex; width: 100%; background: #000; padding: 5px; z-index: 50; }
+        .mode-tab { flex: 1; padding: 10px; text-align: center; font-weight: bold; color: #888; cursor: pointer; transition: 0.3s; border-radius: 8px; }
+        .mode-tab.active { background: #d4af37; color: #1a1a1a; }
+
+        #guide-area { height: 35%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; position: relative; transition: 0.3s; }
+        
         #controls { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; }
         #key-control-group { display: flex; align-items: center; gap: 5px; background: #1a1a1a; padding: 4px; border-radius: 8px; border: 1px solid #444; }
-        #original-key-btn { background: #444; color: #aaa; border: none; padding: 8px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        #original-key-btn { background: #444; color: #aaa; border: none; padding: 8px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; }
         #original-key-btn.is-original { background: #d4af37; color: #1a1a1a; }
         #key-selector { width: 70px; padding: 8px; background: #333; color: #d4af37; border: 1px solid #555; border-radius: 5px; font-weight: bold; text-align: center; }
-        #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
-        #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; transition: all 0.2s; }
-        #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
-        .speed-label { color: #888; font-size: 12px; font-weight: bold; }
-
-        #lyric-display { 
-            flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; 
-            white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px;
-            font-family: 'Courier New', Courier, monospace; letter-spacing: 0.5px;
-        }
         
+        #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
+        #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
+        
+        #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px; font-family: 'Courier New', Courier, monospace; }
+        
+        #free-mode-display { display: none; flex-grow: 1; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; border-radius: 8px; position: relative; overflow: hidden; }
+        #free-key-selector { font-size: 24px; padding: 10px 20px; background: #333; color: #d4af37; border: 2px solid #d4af37; border-radius: 12px; font-weight: bold; margin-bottom: 20px; outline: none; }
+        #current-playing-chord { font-size: 64px; font-weight: bold; color: rgba(255,255,255,0.1); transition: color 0.1s, transform 0.1s; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #current-playing-chord.flash { color: #d4af37; transform: translate(-50%, -50%) scale(1.1); text-shadow: 0 0 20px rgba(212,175,55,0.5); }
+
         #edit-header { display: none; position: absolute; top: 0; left: 0; width: 100%; padding: 10px 15px; background: rgba(212, 175, 55, 0.95); justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .edit-title { color: #1a1a1a; font-weight: bold; font-size: 14px; }
-        .edit-buttons { display: flex; gap: 10px; }
         .edit-btn { padding: 5px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        #reset-order-btn { background: #1a1a1a; color: #d4af37; }
+        #reset-order-btn { background: #1a1a1a; color: #d4af37; margin-right: 10px; }
         #save-order-btn { background: #fff; color: #1a1a1a; }
         #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 
-        #app-container { display: flex; height: 60%; width: 100%; overflow: hidden; min-height: 0; }
-        #chord-area { width: 60%; display: grid; gap: 10px; padding: 12px; overflow: hidden; position: relative; }
-        #chord-area.edit-mode { touch-action: none; }
-        .chord-btn { background-color: #2a2a2a; color: #fff; font-size: clamp(16px, 4vw, 32px); font-weight: bold; border: 2px solid #444; border-radius: 12px; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s, transform 0.1s; text-align: center; position: relative; touch-action: none; }
+        #app-container { display: flex; height: 65%; width: 100%; overflow: hidden; min-height: 0; position: relative; }
+        
+        /* ★★★ 究極の無限連鎖グリッド（全モード共通） ★★★ */
+        #chord-area { 
+            width: 60%; padding: 12px; 
+            overflow-y: auto; overflow-x: hidden; position: relative; 
+            display: grid; gap: 10px; 
+            grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: minmax(75px, auto); /* スマホで押しやすい高さ */
+            grid-auto-flow: dense; /* 隙間を自動で完璧に埋める魔法 */
+        }
+        #chord-area.edit-mode { touch-action: none; overflow: hidden; }
+        
+        .chord-btn { 
+            background-color: #2a2a2a; color: #fff; 
+            font-size: clamp(16px, 4.5vw, 32px); 
+            font-weight: bold; border: 2px solid #444; border-radius: 12px; 
+            display: flex; justify-content: center; align-items: center; 
+            transition: background-color 0.2s; 
+            text-align: center; position: relative; touch-action: none; 
+        }
         .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
+
+        /* ★ 数式による自動変形（1, 5, 9番目は縦長ホーム） */
+        #chord-area > div:nth-child(4n + 1) { 
+            grid-row: span 2; 
+            font-size: clamp(22px, 6vw, 40px); 
+            background: linear-gradient(145deg, #3a3a3a, #222); 
+            border-color: #665522; 
+        }
+        /* ★ 4, 8, 12番目は横長ホーム */
+        #chord-area > div:nth-child(4n) { 
+            grid-column: span 2; 
+            font-size: clamp(20px, 5vw, 36px); 
+            background: linear-gradient(145deg, #333, #1a1a1a); 
+        }
+        
+        .gesture-hint { position: absolute; font-size: 10px; color: #888; pointer-events: none; }
+        .hint-up { top: 2px; } .hint-down { bottom: 2px; } .hint-right { right: 5px; } .hint-left { left: 5px; }
+        .chord-btn.active .gesture-hint { color: rgba(26,26,26,0.5); }
+
         @keyframes jiggle { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } 100% { transform: rotate(-1deg); } }
         .chord-btn.jiggling { animation: jiggle 0.3s infinite; border-color: #d4af37; z-index: 1; }
-        .chord-btn.dragging { opacity: 0.8; transform: scale(1.05); z-index: 100; box-shadow: 0 10px 20px rgba(0,0,0,0.5); animation: none; }
+        
+        /* 浮遊中のボタンは階層が外れるため、大きさをJSで固定化する */
+        .chord-btn.dragging { opacity: 0.8; transform: scale(1.05) !important; z-index: 9999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); animation: none; }
+        
+        /* ★ ダミー箱もスロットに合わせて自動で変形する */
         .chord-placeholder { border: 2px dashed #d4af37; background: transparent; border-radius: 12px; }
         
         #strum-area-container { width: 40%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #111; border-left: 1px solid #333; }
-        
-        #strum-area { 
-            width: 90%; height: 75%; 
-            background: linear-gradient(135deg, #111, #1a1a1a); 
-            border-radius: 20px;
-            display: flex; flex-direction: column; justify-content: space-between; align-items: center; 
-            padding: 40px 0; position: relative; touch-action: none;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1);
-        }
-        
+        #strum-area { width: 90%; height: 75%; background: linear-gradient(135deg, #111, #1a1a1a); border-radius: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 40px 0; position: relative; touch-action: none; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1); }
         .strum-hint { color: #555; font-size: 12px; pointer-events: none; z-index: 10; font-weight: bold; }
-        
-        /* ★ 光の弦（ルミナス・ストリングス）のコンテナとデザイン */
-        #visual-strings-container {
-            position: absolute;
-            top: 40px; /* strum-areaのpaddingに合わせる */
-            bottom: 40px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-evenly; /* 弦を均等に配置 */
-            align-items: center;
-            pointer-events: none; /* ★ 超重要：タッチを阻害しない！ */
-            z-index: 5;
-        }
-
-        .string-zone {
-            flex-grow: 1;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .visual-string {
-            width: 90%;
-            height: 2px;
-            background: linear-gradient(90deg, rgba(212,175,55,0.1), rgba(212,175,55,0.5), rgba(212,175,55,0.1));
-            box-shadow: 0 0 5px rgba(212,175,55,0.3);
-            border-radius: 2px;
-            transition: all 0.15s ease-out; /* なめらかに光が引く */
-        }
-
-        /* 弦を弾いた瞬間の発光アニメーション */
-        .visual-string.plucked {
-            height: 4px;
-            background: linear-gradient(90deg, rgba(255,255,255,0.4), #fff, rgba(255,255,255,0.4));
-            box-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 5px #d4af37;
-            transform: scaleY(1.5);
-        }
+        #visual-strings-container { position: absolute; top: 40px; bottom: 40px; left: 0; width: 100%; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; pointer-events: none; z-index: 5; }
+        .string-zone { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+        .visual-string { width: 90%; height: 2px; background: linear-gradient(90deg, rgba(212,175,55,0.1), rgba(212,175,55,0.5), rgba(212,175,55,0.1)); box-shadow: 0 0 5px rgba(212,175,55,0.3); border-radius: 2px; transition: all 0.15s ease-out; }
+        .visual-string.plucked { height: 4px; background: linear-gradient(90deg, rgba(255,255,255,0.4), #fff, rgba(255,255,255,0.4)); box-shadow: 0 0 15px rgba(255,255,255,0.9), 0 0 5px #d4af37; transform: scaleY(1.5); }
     </style>
 </head>
 <body>
     <div id="toast">Layout Saved!</div>
     <div id="start-overlay"><button id="start-btn">Connecting to Cloud...</button></div>
     
+    <div id="mode-switch">
+        <div id="tab-song" class="mode-tab active">Song Mode</div>
+        <div id="tab-free" class="mode-tab">Free Mode</div>
+    </div>
+
     <div id="guide-area">
         <div id="edit-header">
             <span class="edit-title">🔄 ドラッグで配置を変更</span>
@@ -120,23 +120,42 @@
                 <button id="save-order-btn" class="edit-btn">✓ Save</button>
             </div>
         </div>
-        <div id="controls">
-            <select id="song-selector"></select>
-            <div id="key-control-group">
-                <button id="original-key-btn">Original</button>
-                <select id="key-selector">
-                    <option value="7">+7</option><option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
-                    <option value="0" selected>±0</option>
-                    <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
-                </select>
+
+        <div id="song-mode-ui">
+            <div id="controls">
+                <select id="song-selector"></select>
+                <div id="key-control-group">
+                    <button id="original-key-btn">Original</button>
+                    <select id="key-selector">
+                        <option value="7">+7</option><option value="6">+6</option><option value="5">+5</option><option value="4">+4</option><option value="3">+3</option><option value="2">+2</option><option value="1">+1</option>
+                        <option value="0" selected>±0</option>
+                        <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
+                    </select>
+                </div>
             </div>
+            <div id="scroll-controls">
+                <button id="scroll-btn">▶ Scroll</button>
+                <span class="speed-label">Speed</span>
+                <input type="range" id="scroll-speed" min="1" max="60" value="10">
+            </div>
+            <div id="lyric-display" style="height: 180px;"></div>
         </div>
-        <div id="scroll-controls">
-            <button id="scroll-btn">▶ Scroll</button>
-            <span class="speed-label">Speed</span>
-            <input type="range" id="scroll-speed" min="1" max="60" value="10">
+
+        <div id="free-mode-display">
+            <div style="color:#aaa; font-size:12px; margin-bottom:5px;">Select Key (Diatonic Auto-Gen)</div>
+            <select id="free-key-selector">
+                <option value="C">Key: C (Am)</option>
+                <option value="G">Key: G (Em)</option>
+                <option value="D">Key: D (Bm)</option>
+                <option value="A">Key: A (F#m)</option>
+                <option value="E">Key: E (C#m)</option>
+                <option value="F">Key: F (Dm)</option>
+                <option value="Bb">Key: Bb (Gm)</option>
+                <option value="Eb">Key: Eb (Cm)</option>
+            </select>
+            <div id="current-playing-chord">C</div>
+            <div style="position:absolute; bottom:10px; font-size:11px; color:#555;">※ボタンを上下左右にスワイプでセブンス等に変異</div>
         </div>
-        <div id="lyric-display"></div>
     </div>
     
     <div id="app-container">
@@ -159,13 +178,13 @@
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
         <label>譜面は原曲キーからいくつズレてる？ (Original Offset):</label>
         <select id="original-offset" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
-            <option value="0">ズレなし (譜面通りが原曲キー)</option>
+            <option value="0">ズレなし</option>
             <option value="1">+1</option><option value="2">+2</option><option value="3">+3</option><option value="4">+4</option><option value="5">+5</option><option value="6">+6</option><option value="7">+7</option>
             <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
         </select>
         <label>Lyrics & Chords:</label>
         <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
-        <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコードを自動抽出</button>
+        <button type="button" id="auto-extract-btn" style="width: 100%; padding: 12px; background: #2a6f97; color: #fff; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 20px; cursor: pointer;">✨ 上のテキストからコード抽出</button>
         <label>コード一覧:</label>
         <div id="chord-dropdown-container" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; min-height: 40px; padding: 10px; background: #222; border-radius: 5px; border: 1px solid #555;"></div>
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -178,46 +197,86 @@
     <button id="open-admin" style="position: fixed; bottom: 10px; right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
 
     <script>
-        window.oncontextmenu = function(event) { event.preventDefault(); event.stopPropagation(); return false; };
+        window.oncontextmenu = function(e) { e.preventDefault(); e.stopPropagation(); return false; };
 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec"; 
 
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
+        
+        const tabSong = document.getElementById('tab-song');
+        const tabFree = document.getElementById('tab-free');
+        const songModeUI = document.getElementById('song-mode-ui');
+        const freeModeDisplay = document.getElementById('free-mode-display');
+        const currentPlayingChord = document.getElementById('current-playing-chord');
+        const freeKeySelector = document.getElementById('free-key-selector');
+
+        let currentMode = 'song'; 
+
         const songSelector = document.getElementById('song-selector');
         const keySelector = document.getElementById('key-selector');
         const originalKeyBtn = document.getElementById('original-key-btn');
         const lyricDisplay = document.getElementById('lyric-display');
         const chordArea = document.getElementById('chord-area');
         const strumArea = document.getElementById('strum-area');
-        const stringsContainer = document.getElementById('visual-strings-container'); // ★ 追加
+        const stringsContainer = document.getElementById('visual-strings-container');
         
         const editHeader = document.getElementById('edit-header');
         const resetOrderBtn = document.getElementById('reset-order-btn');
         const saveOrderBtn = document.getElementById('save-order-btn');
         const toast = document.getElementById('toast');
 
-        let isScrolling = false;
-        let scrollAnimationFrame;
-        let currentScrollY = 0; 
-        let lastTime = 0;       
+        let isScrolling = false; let scrollAnimationFrame; let currentScrollY = 0; let lastTime = 0;       
         const scrollBtn = document.getElementById('scroll-btn');
         const scrollSpeed = document.getElementById('scroll-speed');
 
         let songDatabase = {}; 
         let synth;
         let currentNotes = []; 
+        let currentChordName = ""; 
         let currentTranspose = 0; 
         let activeNotes = []; 
         let currentSongTitle = "";
         
         let currentChordsArray = []; 
         let originalChordsArray = []; 
+        
         let isEditMode = false;
         let longPressTimer = null;
         let draggedElement = null;
         let placeholder = null;
         let initialPointerEvent = null;
+
+        const masterChordDictionary = {
+            "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4", "Cmaj7": "C3,E3,G3,B3,E4",
+            "C#": "C#3,F3,G#3,C#4,F4", "C#m": "C#3,G#3,C#4,E4,G#4", "C#7": "C#3,F3,B3,C#4,F4", "C#m7": "C#3,G#3,B3,E4,G#4", "C#maj7": "C#3,F3,G#3,C4,F4",
+            "Db": "C#3,F3,G#3,C#4,F4", "Dbm": "C#3,G#3,C#4,E4,G#4", "Db7": "C#3,F3,B3,C#4,F4", "Dbm7": "C#3,G#3,B3,E4,G#4", "Dbmaj7": "C#3,F3,G#3,C4,F4",
+            "D": "D3,A3,D4,F#4", "Dm": "D3,A3,D4,F4", "D7": "D3,A3,C4,F#4", "Dm7": "D3,A3,C4,F4", "Dsus4": "D3,A3,D4,G4", "Dmaj7": "D3,A3,C#4,F#4",
+            "D#": "Eb3,G3,Bb3,Eb4,G4", "D#m": "Eb3,Gb3,Bb3,Eb4,Gb4", "D#7": "Eb3,G3,Db4,Eb4,G4", "D#maj7": "Eb3,G3,Bb3,D4,G4",
+            "Eb": "Eb3,G3,Bb3,Eb4,G4", "Ebm": "Eb3,Gb3,Bb3,Eb4,Gb4", "Eb7": "Eb3,G3,Db4,Eb4,G4", "Ebmaj7": "Eb3,G3,Bb3,D4,G4",
+            "E": "E2,B2,E3,G#3,B3,E4", "Em": "E2,B2,E3,G3,B3,E4", "E7": "E2,B2,D3,G#3,B3,E4", "Em7": "E2,B2,D3,G3,B3,E4", "Esus4": "E2,B2,E3,A3,B3,E4", "Emaj7": "E2,B2,Eb3,G#3,B3,E4",
+            "F": "F2,C3,F3,A3,C4,F4", "Fm": "F2,C3,F3,Ab3,C4,F4", "F7": "F2,C3,Eb3,A3,C4,F4", "Fm7": "F2,C3,Eb3,Ab3,C4,F4", "Fmaj7": "F2,C3,E3,A3,C4,F4",
+            "F#": "F#2,C#3,F#3,A#3,C#4,F#4", "F#m": "F#2,C#3,F#3,A3,C#4,F#4", "F#7": "F#2,C#3,E3,A#3,C#4,F#4", "F#m7": "F#2,C#3,E3,A3,C#4,F#4", "F#maj7": "F#2,C#3,F3,A#3,C#4,F#4",
+            "Gb": "F#2,C#3,F#3,A#3,C#4,F#4", "Gbm": "F#2,C#3,F#3,A3,C#4,F#4", "Gb7": "F#2,C#3,E3,A#3,C#4,F#4", "Gbm7": "F#2,C#3,E3,A3,C#4,F#4", "Gbmaj7": "F#2,C#3,F3,A#3,C#4,F#4",
+            "G": "G2,B2,D3,G3,B3,G4", "Gm": "G2,D3,G3,Bb3,D4,G4", "G7": "G2,B2,D3,G3,B3,F4", "Gm7": "G2,D3,F3,Bb3,D4,G4", "Gsus4": "G2,D3,G3,C4,D4,G4", "Gmaj7": "G2,B2,D3,F#3,B3,G4",
+            "G#": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "G#m": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "G#7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4", "G#maj7": "Ab2,Eb3,G3,C4,Eb4,Ab4",
+            "Ab": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "Abm": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "Ab7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4", "Abmaj7": "Ab2,Eb3,G3,C4,Eb4,Ab4",
+            "A": "A2,E3,A3,C#4,E4", "Am": "A2,E3,A3,C4,E4", "A7": "A2,E3,G3,C#4,E4", "Am7": "A2,E3,G3,C4,E4", "Asus4": "A2,E3,A3,D4,E4", "Amaj7": "A2,E3,G#3,C#4,E4",
+            "A#": "Bb2,F3,Bb3,D4,F4", "A#m": "Bb2,F3,Bb3,Db4,F4", "A#7": "Bb2,F3,Ab3,D4,F4", "A#maj7": "Bb2,F3,A3,D4,F4",
+            "Bb": "Bb2,F3,Bb3,D4,F4", "Bbm": "Bb2,F3,Bb3,Db4,F4", "Bb7": "Bb2,F3,Ab3,D4,F4", "Bbmaj7": "Bb2,F3,A3,D4,F4",
+            "B": "B2,F#3,B3,D#4,F#4", "Bm": "B2,F#3,B3,D4,F#4", "B7": "B2,D#3,A3,B3,F#4", "Bm7": "B2,F#3,A3,D4,F#4", "Bmaj7": "B2,F#3,A#3,D#4,F#4"
+        };
+
+        const diatonicMap = {
+            "C": ["C", "Dm", "Em", "F", "G", "Am"],
+            "G": ["G", "Am", "Bm", "C", "D", "Em"],
+            "D": ["D", "Em", "F#m", "G", "A", "Bm"],
+            "A": ["A", "Bm", "C#m", "D", "E", "F#m"],
+            "E": ["E", "F#m", "G#m", "A", "B", "C#m"],
+            "F": ["F", "Gm", "Am", "Bb", "C", "Dm"],
+            "Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm"],
+            "Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm"]
+        };
 
         async function fetchSongData() {
             try {
@@ -260,14 +319,54 @@
             }
         };
 
+        tabSong.onclick = () => switchMode('song');
+        tabFree.onclick = () => switchMode('free');
+
+        function switchMode(mode) {
+            currentMode = mode;
+            exitEditMode();
+            if (mode === 'song') {
+                tabSong.classList.add('active'); tabFree.classList.remove('active');
+                songModeUI.style.display = 'block'; freeModeDisplay.style.display = 'none';
+                loadSong(currentSongTitle);
+            } else {
+                tabFree.classList.add('active'); tabSong.classList.remove('active');
+                songModeUI.style.display = 'none'; freeModeDisplay.style.display = 'flex';
+                loadFreeMode(freeKeySelector.value);
+            }
+        }
+
+        freeKeySelector.onchange = (e) => { loadFreeMode(e.target.value); };
+
+        function loadFreeMode(keyName) {
+            currentTranspose = 0; 
+            const chords = diatonicMap[keyName];
+            currentChordsArray = chords.map(cName => {
+                return { name: cName, notes: masterChordDictionary[cName], root: cName.replace(/m$/, '') };
+            });
+            renderChords();
+            if (currentChordsArray.length > 0) {
+                currentNotes = currentChordsArray[0].notes.split(',');
+                currentChordName = currentChordsArray[0].name;
+                updateFreeModeDisplay(currentChordName);
+                drawVisualStrings();
+            }
+        }
+
+        function updateFreeModeDisplay(name) {
+            if (currentMode !== 'free') return;
+            currentPlayingChord.textContent = name;
+            currentPlayingChord.classList.remove('flash');
+            void currentPlayingChord.offsetWidth; 
+            currentPlayingChord.classList.add('flash');
+        }
+
         function updateKeyUI(songData) {
             const originalOffset = parseInt(songData.originalOffset || 0);
             if (currentTranspose === originalOffset) {
-                originalKeyBtn.classList.add('is-original');
-                originalKeyBtn.textContent = "★ Original";
+                originalKeyBtn.classList.add('is-original'); originalKeyBtn.textContent = "★ Original";
             } else {
-                originalKeyBtn.classList.remove('is-original');
-                originalKeyBtn.textContent = "Original";
+                originalKeyBtn.classList.remove('is-original'); originalKeyBtn.textContent = "Original";
             }
             keySelector.value = currentTranspose;
         }
@@ -280,11 +379,13 @@
             const savedKey = localStorage.getItem(`myKey_${songTitle}`);
             currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
             updateKeyUI(songData);
+            
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics;
             lyricDisplay.scrollTop = 0; currentScrollY = 0;
             if (isScrolling) scrollBtn.click(); 
+            
             originalChordsArray = [...songData.chords]; 
             const savedOrderStr = localStorage.getItem(`customOrder_${songTitle}`);
             if (savedOrderStr) {
@@ -298,82 +399,82 @@
             
             renderChords();
             
-            // 曲読み込み完了時に最初のコードの弦を描画
-            if (currentChordsArray.length > 0 && !isEditMode) {
+            if (currentChordsArray.length > 0) {
                 currentNotes = currentChordsArray[0].notes.split(',');
-                drawVisualStrings(); // ★ 追加
+                currentChordName = currentChordsArray[0].name;
+                drawVisualStrings(); 
             }
         }
 
+        // ★★★ JSでのGridのcols/rows計算を完全削除！ CSS（nth-child）の力で全モードを制御！ ★★★
         function renderChords() {
             chordArea.innerHTML = ""; 
-            const chordCount = currentChordsArray.length;
-            let cols = 2, rows = 2;
-            if (chordCount <= 4) { cols = 2; rows = 2; } 
-            else if (chordCount <= 6) { cols = 2; rows = 3; } 
-            else if (chordCount <= 8) { cols = 2; rows = 4; } 
-            else if (chordCount <= 9) { cols = 3; rows = 3; } 
-            else if (chordCount <= 12) { cols = 3; rows = 4; } 
-            else { cols = 4; rows = Math.ceil(chordCount / 4); } 
-            chordArea.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-            chordArea.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            
             currentChordsArray.forEach((chord, index) => {
                 const btn = document.createElement('div');
                 btn.className = 'chord-btn';
                 if (index === 0 && !isEditMode) btn.classList.add('active'); 
-                btn.textContent = chord.name;
+                
+                if (currentMode === 'free') {
+                    const root = chord.root || chord.name.replace(/m$/, '');
+                    btn.innerHTML = `
+                        ${chord.name}
+                        <span class="gesture-hint hint-up">maj7</span>
+                        <span class="gesture-hint hint-down">7</span>
+                        <span class="gesture-hint hint-left">m</span>
+                        <span class="gesture-hint hint-right">sus4</span>
+                    `;
+                } else {
+                    btn.textContent = chord.name;
+                }
+                
+                btn.setAttribute('data-base-name', chord.name);
                 btn.setAttribute('data-notes', chord.notes);
                 btn.setAttribute('data-index', index);
+                
                 btn.addEventListener('pointerdown', handlePointerDown);
                 btn.addEventListener('pointerup', handlePointerUp);
                 btn.addEventListener('pointermove', handlePointerMove);
                 btn.addEventListener('pointercancel', handlePointerUp);
+                
                 if(isEditMode) btn.classList.add('jiggling');
                 chordArea.appendChild(btn);
             });
         }
 
-        // ★ 弦を動的に描画する関数
         function drawVisualStrings() {
-            stringsContainer.innerHTML = ''; // 一旦クリア
+            stringsContainer.innerHTML = ''; 
             const count = currentNotes.length;
             if (count === 0) return;
-
-            // countの数だけ弦を作る（上から高音→低音）
             for (let i = 0; i < count; i++) {
-                const zone = document.createElement('div');
-                zone.className = 'string-zone';
-                
-                const str = document.createElement('div');
-                str.className = 'visual-string';
-                
-                // ★ IDの付与ルール：
-                // ストロークの計算は、下から上へスワイプした時に 0, 1, 2... となる。
-                // 画面のDOMは「上から下」へ作られるため、一番上の要素が最高音（count - 1）になる。
+                const zone = document.createElement('div'); zone.className = 'string-zone';
+                const str = document.createElement('div'); str.className = 'visual-string';
                 str.id = 'v-string-' + ((count - 1) - i);
-                
-                zone.appendChild(str);
-                stringsContainer.appendChild(zone);
+                zone.appendChild(str); stringsContainer.appendChild(zone);
             }
         }
 
         function handlePointerDown(e) {
-            if (isEditMode) { startDrag(e, this); return; }
             initialPointerEvent = e;
             const element = this;
-            longPressTimer = setTimeout(() => { 
-                enterEditMode(); 
-                startDrag(initialPointerEvent, element);
-            }, 800);
             
-            if (this.classList.contains('active')) { forceMute(); return; }
-            document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
+            if (currentMode === 'song') {
+                if (isEditMode) { startDrag(e, this); return; }
+                longPressTimer = setTimeout(() => { 
+                    enterEditMode(); 
+                    startDrag(initialPointerEvent, element);
+                }, 800);
+            }
             
-            // コードが変更されたら notes を更新し、弦を引き直す
+            if (!this.classList.contains('active')) {
+                document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            }
+            
+            currentChordName = this.getAttribute('data-base-name');
             currentNotes = this.getAttribute('data-notes').split(',');
-            drawVisualStrings(); // ★ 追加
-            
+            updateFreeModeDisplay(currentChordName);
+            drawVisualStrings();
             softMute();
         }
 
@@ -383,64 +484,100 @@
         }
 
         function handlePointerMove(e) {
-            if (!isEditMode) { 
+            if (currentMode === 'song' && !isEditMode) { 
                 if (initialPointerEvent && (Math.abs(e.clientX - initialPointerEvent.clientX) > 10 || Math.abs(e.clientY - initialPointerEvent.clientY) > 10)) {
                     clearTimeout(longPressTimer);
                 }
-            } else if (draggedElement) { moveDrag(e); }
+            } 
+            else if (isEditMode && draggedElement) { 
+                moveDrag(e); 
+            }
+            else if (currentMode === 'free' && initialPointerEvent) {
+                const dx = e.clientX - initialPointerEvent.clientX;
+                const dy = e.clientY - initialPointerEvent.clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist > 20) { 
+                    let baseName = this.getAttribute('data-base-name');
+                    let root = baseName.replace(/m$/, ''); 
+                    let newChordName = baseName;
+
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        if (dx > 0) newChordName = root + "sus4"; 
+                        else newChordName = root + "m"; 
+                    } else {
+                        if (dy > 0) newChordName = root + "7"; 
+                        else newChordName = root + "maj7"; 
+                    }
+                    
+                    if (masterChordDictionary[newChordName] && currentChordName !== newChordName) {
+                        currentChordName = newChordName;
+                        currentNotes = masterChordDictionary[newChordName].split(',');
+                        updateFreeModeDisplay(currentChordName);
+                        drawVisualStrings();
+                        softMute();
+                    }
+                }
+            }
         }
 
         function enterEditMode() {
             if (isEditMode) return;
-            isEditMode = true;
-            chordArea.classList.add('edit-mode');
-            editHeader.style.display = 'flex';
-            document.querySelectorAll('.chord-btn').forEach(btn => {
-                btn.classList.add('jiggling');
-                btn.classList.remove('active'); 
-            });
+            isEditMode = true; chordArea.classList.add('edit-mode'); editHeader.style.display = 'flex';
+            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); });
             forceMute();
         }
-
         function exitEditMode() {
-            isEditMode = false;
-            chordArea.classList.remove('edit-mode');
-            editHeader.style.display = 'none';
+            isEditMode = false; chordArea.classList.remove('edit-mode'); editHeader.style.display = 'none';
             document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('jiggling'));
             const firstBtn = chordArea.querySelector('.chord-btn');
-            if(firstBtn) {
-                firstBtn.classList.add('active');
-                currentNotes = firstBtn.getAttribute('data-notes').split(',');
-                drawVisualStrings(); // ★ 追加
-            }
+            if(firstBtn) { firstBtn.classList.add('active'); currentNotes = firstBtn.getAttribute('data-notes').split(','); drawVisualStrings(); }
         }
 
+        // ★ ダミー箱を親の階層へ移動して、nth-childの魔法を維持する
         let startY, startX, initialRect;
         function startDrag(e, el) {
-            draggedElement = el;
-            draggedElement.classList.add('dragging');
-            draggedElement.classList.remove('jiggling');
-            placeholder = document.createElement('div');
-            placeholder.className = 'chord-placeholder';
+            draggedElement = el; 
+            
+            // ドラッグ要素の元のサイズを保存
+            initialRect = draggedElement.getBoundingClientRect(); 
+            const appRect = document.getElementById('app-container').getBoundingClientRect();
+            
+            // ダミー箱を元の場所に挿入（これが自動的に縦横に変形する！）
+            placeholder = document.createElement('div'); 
+            placeholder.className = 'chord-placeholder'; 
             chordArea.insertBefore(placeholder, draggedElement);
-            initialRect = draggedElement.getBoundingClientRect();
-            const areaRect = chordArea.getBoundingClientRect();
-            draggedElement.style.position = 'absolute';
-            draggedElement.style.width = initialRect.width + 'px';
+            
+            // 浮遊ボタンを #app-container に移動（nth-childのカウントから外す）
+            document.getElementById('app-container').appendChild(draggedElement);
+            
+            draggedElement.classList.add('dragging'); 
+            draggedElement.classList.remove('jiggling');
+            draggedElement.style.position = 'absolute'; 
+            draggedElement.style.width = initialRect.width + 'px'; 
             draggedElement.style.height = initialRect.height + 'px';
-            draggedElement.style.left = (initialRect.left - areaRect.left) + 'px';
-            draggedElement.style.top = (initialRect.top - areaRect.top) + 'px';
-            startX = e.clientX; startY = e.clientY;
+            
+            // #app-container 基準の絶対座標
+            draggedElement.style.left = (initialRect.left - appRect.left) + 'px'; 
+            draggedElement.style.top = (initialRect.top - appRect.top) + 'px';
+            
+            startX = e.clientX; startY = e.clientY; 
             draggedElement.setPointerCapture(e.pointerId);
         }
 
         function moveDrag(e) {
             const dx = e.clientX - startX; const dy = e.clientY - startY;
             draggedElement.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+            
+            // 裏にある要素を探すために、一瞬だけ浮遊ボタンのポインターイベントを消す
+            draggedElement.style.pointerEvents = 'none';
             const overElement = document.elementFromPoint(e.clientX, e.clientY);
-            if (overElement && overElement.classList.contains('chord-btn') && overElement !== draggedElement) {
+            draggedElement.style.pointerEvents = 'auto';
+
+            if (overElement && overElement.classList.contains('chord-btn')) {
                 const overRect = overElement.getBoundingClientRect();
                 const isAfter = (e.clientY > overRect.top + overRect.height / 2) || (e.clientX > overRect.left + overRect.width / 2);
+                // ダミー箱が移動することで、CSSの nth-child がリアルタイムに適用され、形がカシャカシャと変異する！
                 if (isAfter) { overElement.after(placeholder); } else { overElement.before(placeholder); }
             }
         }
@@ -449,16 +586,18 @@
             draggedElement.releasePointerCapture(e.pointerId);
             draggedElement.style.position = ''; draggedElement.style.width = ''; draggedElement.style.height = '';
             draggedElement.style.left = ''; draggedElement.style.top = ''; draggedElement.style.transform = '';
-            draggedElement.classList.remove('dragging');
-            draggedElement.classList.add('jiggling');
-            placeholder.replaceWith(draggedElement);
+            draggedElement.classList.remove('dragging'); draggedElement.classList.add('jiggling');
+            
+            // 浮遊ボタンをダミー箱の場所に戻す（これで完了）
+            placeholder.replaceWith(draggedElement); 
             placeholder = null; draggedElement = null;
         }
 
         saveOrderBtn.onclick = () => {
             const newArray = []; const newNames = [];
             chordArea.querySelectorAll('.chord-btn').forEach(btn => {
-                const name = btn.textContent; const notes = btn.getAttribute('data-notes');
+                const name = btn.getAttribute('data-base-name'); // UI文字ではなく本当のコード名を取得
+                const notes = btn.getAttribute('data-notes');
                 newArray.push({name: name, notes: notes}); newNames.push(name);
             });
             currentChordsArray = newArray;
@@ -466,9 +605,8 @@
             exitEditMode(); renderChords(); 
             toast.style.opacity = 1; setTimeout(() => { toast.style.opacity = 0; }, 2000);
         };
-
         resetOrderBtn.onclick = () => {
-            if(confirm("ボタンの配置を初期状態に戻しますか？")) {
+            if(confirm("初期状態に戻しますか？")) {
                 localStorage.removeItem(`customOrder_${currentSongTitle}`);
                 currentChordsArray = [...originalChordsArray];
                 exitEditMode(); renderChords();
@@ -477,18 +615,14 @@
 
         keySelector.onchange = (e) => { 
             softMute(); currentTranspose = parseInt(e.target.value); 
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
-            updateKeyUI(songDatabase[currentSongTitle]);
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]);
         };
-
         originalKeyBtn.onclick = () => {
             const songData = songDatabase[currentSongTitle];
             if(!songData) return;
             softMute(); currentTranspose = parseInt(songData.originalOffset || 0);
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
-            updateKeyUI(songData);
+            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData);
         };
-
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
             if (isScrolling) {
@@ -500,7 +634,6 @@
                 cancelAnimationFrame(scrollAnimationFrame);
             }
         };
-
         function autoScroll(timestamp) {
             if (!isScrolling) return;
             const deltaTime = timestamp - lastTime; lastTime = timestamp;
@@ -510,99 +643,86 @@
             if (lyricDisplay.scrollTop + lyricDisplay.clientHeight >= lyricDisplay.scrollHeight - 1) { scrollBtn.click(); return; }
             scrollAnimationFrame = requestAnimationFrame(autoScroll);
         }
-
         lyricDisplay.addEventListener('touchstart', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
         lyricDisplay.addEventListener('wheel', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
 
-        // ★★★ ストローク処理 ＆ 発光アニメーション ★★★
         let isStrumming = false;
         let pluckedStrings = new Set();
         let strumRect;
         let lastStringIndex = -1;
+        let lastStrumTime = 0;
 
         strumArea.addEventListener('pointerdown', (e) => {
             if (!synth || currentNotes.length === 0) return;
-            isStrumming = true;
-            pluckedStrings.clear();
-            lastStringIndex = -1;
-            
-            // 弦のコンテナの座標を基準にする
+            isStrumming = true; pluckedStrings.clear(); lastStringIndex = -1;
+            lastStrumTime = performance.now();
             strumRect = stringsContainer.getBoundingClientRect();
             strumArea.setPointerCapture(e.pointerId);
             processStrum(e);
         });
-
         strumArea.addEventListener('pointermove', (e) => {
             if (!isStrumming) return;
             processStrum(e);
         });
-
         strumArea.addEventListener('pointerup', (e) => {
-            isStrumming = false;
-            strumArea.releasePointerCapture(e.pointerId);
+            isStrumming = false; strumArea.releasePointerCapture(e.pointerId);
         });
 
         function processStrum(e) {
             const yPos = e.clientY - strumRect.top;
             const stringCount = currentNotes.length;
             const stringSpacing = strumRect.height / stringCount;
-            
-            // 下が0（低音）、上が最大（高音）
             let stringIndex = (stringCount - 1) - Math.floor(yPos / stringSpacing);
-
             if (stringIndex < 0) stringIndex = 0;
             if (stringIndex >= stringCount) stringIndex = stringCount - 1;
+
+            const now = performance.now();
+            const timeDiff = now - lastStrumTime;
+            lastStrumTime = now;
+            let velocity = 0.8;
+            if (timeDiff > 0 && lastStringIndex !== -1) {
+                const speed = Math.abs(stringIndex - lastStringIndex) / timeDiff;
+                velocity = Math.min(1.0, Math.max(0.4, speed * 20)); 
+            }
 
             if (lastStringIndex !== -1 && lastStringIndex !== stringIndex) {
                 const step = stringIndex > lastStringIndex ? 1 : -1;
                 let i = lastStringIndex + step;
                 while (true) {
-                    if (!pluckedStrings.has(i)) { triggerString(i, e.pressure); }
+                    if (!pluckedStrings.has(i)) { triggerString(i, velocity); }
                     if (i === stringIndex) break;
                     i += step;
                 }
             } else if (lastStringIndex === -1) {
-                triggerString(stringIndex, e.pressure);
+                triggerString(stringIndex, velocity);
             }
             lastStringIndex = stringIndex;
+            if (navigator.vibrate) navigator.vibrate(2); 
         }
 
-        function triggerString(index, pressure) {
+        function triggerString(index, velocity) {
             pluckedStrings.add(index);
             const note = currentNotes[index];
             if (!note) return;
             try {
                 const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                let velocity = pressure ? Math.max(0.3, pressure) : 0.8;
                 synth.triggerAttack(transposedNote, Tone.now(), velocity);
                 
-                // ★ 視覚的フィードバック（弦を発光させる）
                 const vStr = document.getElementById('v-string-' + index);
                 if (vStr) {
                     vStr.classList.add('plucked');
-                    // 0.15秒後に発光を消す
                     setTimeout(() => { vStr.classList.remove('plucked'); }, 150);
                 }
-                
+                updateFreeModeDisplay(currentChordName);
             } catch(err) { console.warn(err); }
         }
 
-        function softMute() {
-            if (!synth || activeNotes.length === 0) return;
-            const now = Tone.now();
-            activeNotes.forEach(note => { synth.triggerRelease(note, now); });
-            activeNotes = [];
-        }
-
+        function softMute() { if (!synth || activeNotes.length === 0) return; const now = Tone.now(); activeNotes.forEach(note => { synth.triggerRelease(note, now); }); activeNotes = []; }
         function forceMute() { if (!synth) return; synth.releaseAll(Tone.now()); activeNotes = []; }
+
         function initSongSelector() {
-            const currentVal = songSelector.value;
-            songSelector.innerHTML = "";
-            for (const title in songDatabase) {
-                const opt = document.createElement('option');
-                opt.value = title; opt.textContent = title;
-                songSelector.appendChild(opt);
-            }
+            const currentVal = songSelector.value; songSelector.innerHTML = "";
+            for (const title in songDatabase) { const opt = document.createElement('option'); opt.value = title; opt.textContent = title; songSelector.appendChild(opt); }
             if (currentVal) songSelector.value = currentVal;
             songSelector.onchange = (e) => loadSong(e.target.value);
         }
@@ -614,44 +734,21 @@
         const lyricsInput = document.getElementById('new-lyrics');
         const chordContainer = document.getElementById('chord-dropdown-container');
 
-        const masterChordDictionary = {
-            "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4",
-            "C#": "C#3,F3,G#3,C#4,F4", "C#m": "C#3,G#3,C#4,E4,G#4", "C#7": "C#3,F3,B3,C#4,F4", "C#m7": "C#3,G#3,B3,E4,G#4",
-            "Db": "C#3,F3,G#3,C#4,F4", "Dbm": "C#3,G#3,C#4,E4,G#4", "Db7": "C#3,F3,B3,C#4,F4", "Dbm7": "C#3,G#3,B3,E4,G#4",
-            "D": "D3,A3,D4,F#4", "Dm": "D3,A3,D4,F4", "D7": "D3,A3,C4,F#4", "Dm7": "D3,A3,C4,F4", "Dsus4": "D3,A3,D4,G4",
-            "D#": "Eb3,G3,Bb3,Eb4,G4", "D#m": "Eb3,Gb3,Bb3,Eb4,Gb4", "D#7": "Eb3,G3,Db4,Eb4,G4",
-            "Eb": "Eb3,G3,Bb3,Eb4,G4", "Ebm": "Eb3,Gb3,Bb3,Eb4,Gb4", "Eb7": "Eb3,G3,Db4,Eb4,G4",
-            "E": "E2,B2,E3,G#3,B3,E4", "Em": "E2,B2,E3,G3,B3,E4", "E7": "E2,B2,D3,G#3,B3,E4", "Em7": "E2,B2,D3,G3,B3,E4", "Esus4": "E2,B2,E3,A3,B3,E4",
-            "F": "F2,C3,F3,A3,C4,F4", "Fm": "F2,C3,F3,Ab3,C4,F4", "F7": "F2,C3,Eb3,A3,C4,F4", "Fm7": "F2,C3,Eb3,Ab3,C4,F4",
-            "F#": "F#2,C#3,F#3,A#3,C#4,F#4", "F#m": "F#2,C#3,F#3,A3,C#4,F#4", "F#7": "F#2,C#3,E3,A#3,C#4,F#4", "F#m7": "F#2,C#3,E3,A3,C#4,F#4",
-            "Gb": "F#2,C#3,F#3,A#3,C#4,F#4", "Gbm": "F#2,C#3,F#3,A3,C#4,F#4", "Gb7": "F#2,C#3,E3,A#3,C#4,F#4", "Gbm7": "F#2,C#3,E3,A3,C#4,F#4",
-            "G": "G2,B2,D3,G3,B3,G4", "Gm": "G2,D3,G3,Bb3,D4,G4", "G7": "G2,B2,D3,G3,B3,F4", "Gm7": "G2,D3,F3,Bb3,D4,G4", "Gsus4": "G2,D3,G3,C4,D4,G4",
-            "G#": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "G#m": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "G#7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4",
-            "Ab": "Ab2,Eb3,Ab3,C4,Eb4,Ab4", "Abm": "Ab2,Eb3,Ab3,Cb4,Eb4,Ab4", "Ab7": "Ab2,Eb3,Gb3,C4,Eb4,Ab4",
-            "A": "A2,E3,A3,C#4,E4", "Am": "A2,E3,A3,C4,E4", "A7": "A2,E3,G3,C#4,E4", "Am7": "A2,E3,G3,C4,E4", "Asus4": "A2,E3,A3,D4,E4",
-            "A#": "Bb2,F3,Bb3,D4,F4", "A#m": "Bb2,F3,Bb3,Db4,F4", "A#7": "Bb2,F3,Ab3,D4,F4",
-            "Bb": "Bb2,F3,Bb3,D4,F4", "Bbm": "Bb2,F3,Bb3,Db4,F4", "Bb7": "Bb2,F3,Ab3,D4,F4",
-            "B": "B2,F#3,B3,D#4,F#4", "Bm": "B2,F#3,B3,D4,F#4", "B7": "B2,D#3,A3,B3,F#4", "Bm7": "B2,F#3,A3,D4,F#4"
-        };
         const rootOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
-        const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" } ];
+        const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" }, { label: "maj7", value: "maj7" } ];
 
         document.getElementById('open-admin').onclick = () => {
             adminModeSelector.innerHTML = '<option value="">✨ 新規作成 (Create New Song)</option>';
             for (const title in songDatabase) {
-                const opt = document.createElement('option');
-                opt.value = title; opt.textContent = `✏️ 編集: ${title}`;
-                adminModeSelector.appendChild(opt);
+                const opt = document.createElement('option'); opt.value = title; opt.textContent = `✏️ 編集: ${title}`; adminModeSelector.appendChild(opt);
             }
             adminPanel.style.display = 'block';
         };
         document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
         adminModeSelector.onchange = (e) => {
-            const selectedTitle = e.target.value;
-            chordContainer.innerHTML = ''; 
-            if (!selectedTitle) {
-                titleInput.value = ''; lyricsInput.value = ''; originalOffsetInput.value = "0"; 
-            } else {
+            const selectedTitle = e.target.value; chordContainer.innerHTML = ''; 
+            if (!selectedTitle) { titleInput.value = ''; lyricsInput.value = ''; originalOffsetInput.value = "0"; } 
+            else {
                 const song = songDatabase[selectedTitle];
                 titleInput.value = selectedTitle; lyricsInput.value = song.lyrics; originalOffsetInput.value = song.originalOffset || "0"; 
                 song.chords.forEach(chord => {
@@ -661,14 +758,10 @@
             }
         };
         function createChordDropdown(defaultRoot = "C", defaultQuality = "") {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'chord-group';
-            wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
-            const rootSelect = document.createElement('select');
-            rootSelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
+            const wrapper = document.createElement('div'); wrapper.className = 'chord-group'; wrapper.style.cssText = "display: flex; background: #d4af37; border-radius: 8px; overflow: hidden; border: 2px solid #b8962e;";
+            const rootSelect = document.createElement('select'); rootSelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
             rootOptions.forEach(root => { const opt = document.createElement('option'); opt.value = root; opt.textContent = root; if(root === defaultRoot) opt.selected = true; rootSelect.appendChild(opt); });
-            const qualitySelect = document.createElement('select');
-            qualitySelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
+            const qualitySelect = document.createElement('select'); qualitySelect.style.cssText = "padding: 10px; font-size: 16px; background: transparent; color: #1a1a1a; border: none; font-weight: bold; cursor: pointer; outline: none;";
             qualityOptions.forEach(q => { const opt = document.createElement('option'); opt.value = q.value; opt.textContent = q.label; if(q.value === defaultQuality) opt.selected = true; qualitySelect.appendChild(opt); });
             wrapper.appendChild(rootSelect); wrapper.appendChild(qualitySelect); chordContainer.appendChild(wrapper);
         }
@@ -676,31 +769,20 @@
         document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
         function surgicalSplit(initialTokens) {
-            let processedTokens = [];
-            const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
+            let processedTokens = []; const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
             for (let t of initialTokens) {
-                let cleanT = t.replace(/\[|\]/g, ""); 
-                let match = cleanT.match(gluedRegex);
-                if (match) {
-                    processedTokens.push(match[1]); processedTokens.push(match[2]);
-                    continue;
-                }
+                let cleanT = t.replace(/\[|\]/g, ""); let match = cleanT.match(gluedRegex);
+                if (match) { processedTokens.push(match[1]); processedTokens.push(match[2]); continue; }
                 processedTokens.push(t); 
-            }
-            return processedTokens;
+            } return processedTokens;
         }
 
         document.getElementById('auto-extract-btn').onclick = () => {
-            const text = document.getElementById('new-lyrics').value;
-            if (!text) return alert("テキストを貼り付けてください！");
-            let tokens = surgicalSplit(text.split(/[\s\n\t　]+/));
-            let foundUniqueChords = new Set(); 
-            const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
+            const text = document.getElementById('new-lyrics').value; if (!text) return alert("テキストを貼り付けてください！");
+            let tokens = surgicalSplit(text.split(/[\s\n\t　]+/)); let foundUniqueChords = new Set(); const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
             tokens.forEach(token => {
                 let cleanToken = token.trim().replace(/\[|\]/g, "");
-                if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && (chordRegex.test(cleanToken) || masterChordDictionary[cleanToken])) {
-                    foundUniqueChords.add(cleanToken);
-                }
+                if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && (chordRegex.test(cleanToken) || masterChordDictionary[cleanToken])) { foundUniqueChords.add(cleanToken); }
             });
             chordContainer.innerHTML = '';
             foundUniqueChords.forEach(chordName => {
@@ -710,9 +792,7 @@
         };
 
         document.getElementById('submit-song').onclick = async () => {
-            const title = titleInput.value;
-            const originalOffset = parseInt(originalOffsetInput.value); 
-            let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
+            const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
             let tokens = surgicalSplit(rawLyrics.split(/[\s\t\n\r　]+/)).filter(t => t !== "");
             let resultText = ""; let pendingChords = [];
             for (let token of tokens) {
@@ -722,8 +802,7 @@
                     if (cleanToken.toUpperCase().startsWith("N.C") || masterChordDictionary[cleanToken]) { pendingChords.push(cleanToken); }
                 } else {
                     let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
-                    resultText += (resultText ? "　" : "") + chordStr + token;
-                    pendingChords = [];
+                    resultText += (resultText ? "　" : "") + chordStr + token; pendingChords = [];
                 }
             }
             if (pendingChords.length > 0) { resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join(""); }
