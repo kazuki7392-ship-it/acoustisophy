@@ -2,18 +2,28 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AcoustiSophy - v9.1 Shape-Shift Grid</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192/d4af37/1a1a1a?text=AcoustiSophy">
+    
+    <title>AcoustiSophy - v10.1 The Ultimate Instrument</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
+        /* デフォルトのスクロールや長押しメニューを完全に殺す */
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; -webkit-user-select: auto !important; touch-action: auto !important; }
-        body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* ゴムバンド効果を無効化 */
+        body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; overscroll-behavior: none; }
         
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
         
-        #mode-switch { display: flex; width: 100%; background: #000; padding: 5px; z-index: 50; }
+        /* モード切替タブ（iOSのノッチ避け） */
+        #mode-switch { display: flex; width: 100%; background: #000; padding: env(safe-area-inset-top, 5px) 5px 5px 5px; z-index: 50; }
         .mode-tab { flex: 1; padding: 10px; text-align: center; font-weight: bold; color: #888; cursor: pointer; transition: 0.3s; border-radius: 8px; }
         .mode-tab.active { background: #d4af37; color: #1a1a1a; }
 
@@ -32,70 +42,62 @@
         
         #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px; font-family: 'Courier New', Courier, monospace; }
         
+        /* フリーモード専用UI */
         #free-mode-display { display: none; flex-grow: 1; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; border-radius: 8px; position: relative; overflow: hidden; }
         #free-key-selector { font-size: 24px; padding: 10px 20px; background: #333; color: #d4af37; border: 2px solid #d4af37; border-radius: 12px; font-weight: bold; margin-bottom: 20px; outline: none; }
         #current-playing-chord { font-size: 64px; font-weight: bold; color: rgba(255,255,255,0.1); transition: color 0.1s, transform 0.1s; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #current-playing-chord.flash { color: #d4af37; transform: translate(-50%, -50%) scale(1.1); text-shadow: 0 0 20px rgba(212,175,55,0.5); }
 
-        #edit-header { display: none; position: absolute; top: 0; left: 0; width: 100%; padding: 10px 15px; background: rgba(212, 175, 55, 0.95); justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        #edit-header { display: none; position: absolute; top: 0; left: 0; width: 100%; padding: env(safe-area-inset-top, 10px) 15px 10px 15px; background: rgba(212, 175, 55, 0.95); justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .edit-title { color: #1a1a1a; font-weight: bold; font-size: 14px; }
+        .edit-buttons { display: flex; gap: 10px; }
         .edit-btn { padding: 5px 15px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         #reset-order-btn { background: #1a1a1a; color: #d4af37; margin-right: 10px; }
         #save-order-btn { background: #fff; color: #1a1a1a; }
-        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        #toast { position: fixed; top: env(safe-area-inset-top, 20px); left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 
-        #app-container { display: flex; height: 65%; width: 100%; overflow: hidden; min-height: 0; position: relative; }
+        /* ホームバー領域を避けるための環境変数パディング */
+        #app-container { display: flex; height: 65%; width: 100%; overflow: hidden; min-height: 0; position: relative; padding-bottom: env(safe-area-inset-bottom, 20px); }
         
-        /* ★★★ 究極の無限連鎖グリッド（全モード共通） ★★★ */
-        #chord-area { 
-            width: 60%; padding: 12px; 
-            overflow-y: auto; overflow-x: hidden; position: relative; 
-            display: grid; gap: 10px; 
-            grid-template-columns: repeat(2, 1fr);
-            grid-auto-rows: minmax(75px, auto); /* スマホで押しやすい高さ */
-            grid-auto-flow: dense; /* 隙間を自動で完璧に埋める魔法 */
-        }
-        #chord-area.edit-mode { touch-action: none; overflow: hidden; }
-        
-        .chord-btn { 
-            background-color: #2a2a2a; color: #fff; 
-            font-size: clamp(16px, 4.5vw, 32px); 
-            font-weight: bold; border: 2px solid #444; border-radius: 12px; 
-            display: flex; justify-content: center; align-items: center; 
-            transition: background-color 0.2s; 
-            text-align: center; position: relative; touch-action: none; 
-        }
+        /* 究極の1画面フィット・グリッド */
+        #chord-area { width: 60%; padding: 8px; overflow: hidden; position: relative; display: grid; gap: 6px; grid-auto-rows: minmax(0, 1fr); grid-auto-flow: dense; }
+        #chord-area.edit-mode { touch-action: none; }
+        .chord-btn { background-color: #2a2a2a; color: #fff; font-weight: bold; border: 2px solid #444; border-radius: 10px; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s; text-align: center; position: relative; touch-action: none; min-height: 0; min-width: 0; word-break: break-word; line-height: 1.1; }
         .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
 
-        /* ★ 数式による自動変形（1, 5, 9番目は縦長ホーム） */
-        #chord-area > div:nth-child(4n + 1) { 
-            grid-row: span 2; 
-            font-size: clamp(22px, 6vw, 40px); 
-            background: linear-gradient(145deg, #3a3a3a, #222); 
-            border-color: #665522; 
-        }
-        /* ★ 4, 8, 12番目は横長ホーム */
-        #chord-area > div:nth-child(4n) { 
-            grid-column: span 2; 
-            font-size: clamp(20px, 5vw, 36px); 
-            background: linear-gradient(145deg, #333, #1a1a1a); 
-        }
-        
-        .gesture-hint { position: absolute; font-size: 10px; color: #888; pointer-events: none; }
-        .hint-up { top: 2px; } .hint-down { bottom: 2px; } .hint-right { right: 5px; } .hint-left { left: 5px; }
+        /* コード数に応じた3段階のダイナミック・グリッド */
+        .grid-tier-1 { grid-template-columns: repeat(2, 1fr); }
+        .grid-tier-1 > div:nth-child(4n + 1) { grid-row: span 2; font-size: clamp(18px, 6vw, 40px); background: linear-gradient(145deg, #3a3a3a, #222); border-color: #665522; }
+        .grid-tier-1 > div:nth-child(4n) { grid-column: span 2; font-size: clamp(16px, 5vw, 36px); background: linear-gradient(145deg, #333, #1a1a1a); }
+        .grid-tier-1 > div { font-size: clamp(14px, 4.5vw, 30px); }
+
+        .grid-tier-2 { grid-template-columns: repeat(3, 1fr); }
+        .grid-tier-2 > div:nth-child(1) { grid-row: span 2; grid-column: span 2; font-size: clamp(18px, 5vw, 36px); background: linear-gradient(145deg, #3a3a3a, #222); border-color: #665522; }
+        .grid-tier-2 > div { font-size: clamp(12px, 3.5vw, 24px); }
+
+        .grid-tier-3 { grid-template-columns: repeat(4, 1fr); gap: 4px !important; }
+        .grid-tier-3 > div:nth-child(1) { grid-column: span 2; font-size: clamp(14px, 4vw, 24px); background: linear-gradient(145deg, #3a3a3a, #222); border-color: #665522; }
+        .grid-tier-3 > div { font-size: clamp(10px, 3vw, 20px); border-width: 1px; border-radius: 6px; }
+
+        .gesture-hint { position: absolute; font-size: 8px; color: #888; pointer-events: none; }
+        .hint-up { top: 2px; } .hint-down { bottom: 2px; } .hint-right { right: 3px; } .hint-left { left: 3px; }
         .chord-btn.active .gesture-hint { color: rgba(26,26,26,0.5); }
 
         @keyframes jiggle { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } 100% { transform: rotate(-1deg); } }
         .chord-btn.jiggling { animation: jiggle 0.3s infinite; border-color: #d4af37; z-index: 1; }
-        
-        /* 浮遊中のボタンは階層が外れるため、大きさをJSで固定化する */
         .chord-btn.dragging { opacity: 0.8; transform: scale(1.05) !important; z-index: 9999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); animation: none; }
-        
-        /* ★ ダミー箱もスロットに合わせて自動で変形する */
-        .chord-placeholder { border: 2px dashed #d4af37; background: transparent; border-radius: 12px; }
+        .chord-placeholder { border: 2px dashed #d4af37; background: transparent; border-radius: 10px; }
         
         #strum-area-container { width: 40%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #111; border-left: 1px solid #333; }
-        #strum-area { width: 90%; height: 75%; background: linear-gradient(135deg, #111, #1a1a1a); border-radius: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 40px 0; position: relative; touch-action: none; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1); }
+        
+        /* 誤爆防止のストロークエリア・セーフゾーン */
+        #strum-area { 
+            width: 90%; height: 70%; margin-bottom: 20px; 
+            background: linear-gradient(135deg, #111, #1a1a1a); border-radius: 20px; 
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center; 
+            padding: 40px 0; position: relative; touch-action: none; 
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1); 
+        }
         .strum-hint { color: #555; font-size: 12px; pointer-events: none; z-index: 10; font-weight: bold; }
         #visual-strings-container { position: absolute; top: 40px; bottom: 40px; left: 0; width: 100%; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; pointer-events: none; z-index: 5; }
         .string-zone { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
@@ -114,7 +116,7 @@
 
     <div id="guide-area">
         <div id="edit-header">
-            <span class="edit-title">🔄 ドラッグで配置を変更</span>
+            <span class="edit-title">🔄 指を離さずドラッグ</span>
             <div class="edit-buttons">
                 <button id="reset-order-btn" class="edit-btn">↺ Reset</button>
                 <button id="save-order-btn" class="edit-btn">✓ Save</button>
@@ -154,7 +156,7 @@
                 <option value="Eb">Key: Eb (Cm)</option>
             </select>
             <div id="current-playing-chord">C</div>
-            <div style="position:absolute; bottom:10px; font-size:11px; color:#555;">※ボタンを上下左右にスワイプでセブンス等に変異</div>
+            <div style="position:absolute; bottom:10px; font-size:11px; color:#555;">※上下左右スワイプで変異</div>
         </div>
     </div>
     
@@ -169,7 +171,7 @@
         </div>
     </div>
 
-    <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: 20px; overflow-y: auto;">
+    <div id="admin-panel" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 10000; padding: env(safe-area-inset-top, 20px) 20px 20px 20px; overflow-y: auto;">
         <h2 style="color: #d4af37; margin-bottom: 15px;">Admin Panel</h2>
         <select id="admin-mode-selector" style="width: 100%; padding: 12px; margin-bottom: 20px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 5px; font-size: 16px;">
             <option value="">✨ 新規作成 (Create New Song)</option>
@@ -194,9 +196,10 @@
         <button id="submit-song" style="width: 100%; padding: 15px; background: #d4af37; color: #1a1a1a; font-weight: bold; border: none; border-radius: 10px; margin-bottom: 10px; cursor: pointer;">Upload / Update Cloud</button>
         <button id="close-admin" style="width: 100%; padding: 10px; background: #444; color: #fff; border: none; border-radius: 10px; cursor: pointer;">Cancel</button>
     </div>
-    <button id="open-admin" style="position: fixed; bottom: 10px; right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
+    <button id="open-admin" style="position: fixed; bottom: env(safe-area-inset-bottom, 20px); right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
 
     <script>
+        // 右クリックメニュー等無効化
         window.oncontextmenu = function(e) { e.preventDefault(); e.stopPropagation(); return false; };
 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec"; 
@@ -268,14 +271,10 @@
         };
 
         const diatonicMap = {
-            "C": ["C", "Dm", "Em", "F", "G", "Am"],
-            "G": ["G", "Am", "Bm", "C", "D", "Em"],
-            "D": ["D", "Em", "F#m", "G", "A", "Bm"],
-            "A": ["A", "Bm", "C#m", "D", "E", "F#m"],
-            "E": ["E", "F#m", "G#m", "A", "B", "C#m"],
-            "F": ["F", "Gm", "Am", "Bb", "C", "Dm"],
-            "Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm"],
-            "Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm"]
+            "C": ["C", "Dm", "Em", "F", "G", "Am"], "G": ["G", "Am", "Bm", "C", "D", "Em"],
+            "D": ["D", "Em", "F#m", "G", "A", "Bm"], "A": ["A", "Bm", "C#m", "D", "E", "F#m"],
+            "E": ["E", "F#m", "G#m", "A", "B", "C#m"], "F": ["F", "Gm", "Am", "Bb", "C", "Dm"],
+            "Bb": ["Bb", "Cm", "Dm", "Eb", "F", "Gm"], "Eb": ["Eb", "Fm", "Gm", "Ab", "Bb", "Cm"]
         };
 
         async function fetchSongData() {
@@ -283,48 +282,30 @@
                 const response = await fetch(GAS_URL);
                 const data = await response.json();
                 if (data && Object.keys(data).length > 0) {
-                    songDatabase = data;
-                    initSongSelector();
-                    loadSong(Object.keys(songDatabase)[0]);
-                    startBtn.textContent = "Start AcoustiSophy";
-                    startBtn.style.backgroundColor = "#d4af37";
-                    startBtn.style.color = "#1a1a1a";
+                    songDatabase = data; initSongSelector(); loadSong(Object.keys(songDatabase)[0]);
+                    startBtn.textContent = "Start AcoustiSophy"; startBtn.style.backgroundColor = "#d4af37"; startBtn.style.color = "#1a1a1a";
                 }
-            } catch (error) {
-                console.error("Cloud Sync Failed:", error);
-                startBtn.textContent = "Start (Offline Mode)";
-            }
+            } catch (error) { console.error("Cloud Sync Failed:", error); startBtn.textContent = "Start (Offline Mode)"; }
         }
 
         startBtn.onclick = async () => {
             try {
-                await Tone.start();
-                startBtn.textContent = "Loading Real Sound...";
+                await Tone.start(); startBtn.textContent = "Loading Real Sound...";
                 synth = new Tone.Sampler({
                     urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
-                    baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/",
-                    release: 1.8, 
-                    onload: () => {
-                        startOverlay.style.opacity = '0';
-                        setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
-                    }
+                    baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/", release: 1.8, 
+                    onload: () => { startOverlay.style.opacity = '0'; setTimeout(() => { startOverlay.style.display = 'none'; }, 500); }
                 }).toDestination();
                 synth.volume.value = -2;
-
-                initSongSelector();
-                loadSong(songSelector.value || Object.keys(songDatabase)[0]);
-            } catch (e) {
-                console.error("Boot Error:", e);
-                startOverlay.style.display = 'none';
-            }
+                initSongSelector(); loadSong(songSelector.value || Object.keys(songDatabase)[0]);
+            } catch (e) { console.error("Boot Error:", e); startOverlay.style.display = 'none'; }
         };
 
         tabSong.onclick = () => switchMode('song');
         tabFree.onclick = () => switchMode('free');
 
         function switchMode(mode) {
-            currentMode = mode;
-            exitEditMode();
+            currentMode = mode; exitEditMode();
             if (mode === 'song') {
                 tabSong.classList.add('active'); tabFree.classList.remove('active');
                 songModeUI.style.display = 'block'; freeModeDisplay.style.display = 'none';
@@ -341,181 +322,113 @@
         function loadFreeMode(keyName) {
             currentTranspose = 0; 
             const chords = diatonicMap[keyName];
-            currentChordsArray = chords.map(cName => {
-                return { name: cName, notes: masterChordDictionary[cName], root: cName.replace(/m$/, '') };
-            });
+            currentChordsArray = chords.map(cName => { return { name: cName, notes: masterChordDictionary[cName], root: cName.replace(/m$/, '') }; });
             renderChords();
             if (currentChordsArray.length > 0) {
-                currentNotes = currentChordsArray[0].notes.split(',');
-                currentChordName = currentChordsArray[0].name;
-                updateFreeModeDisplay(currentChordName);
-                drawVisualStrings();
+                currentNotes = currentChordsArray[0].notes.split(','); currentChordName = currentChordsArray[0].name;
+                updateFreeModeDisplay(currentChordName); drawVisualStrings();
             }
         }
 
         function updateFreeModeDisplay(name) {
             if (currentMode !== 'free') return;
-            currentPlayingChord.textContent = name;
-            currentPlayingChord.classList.remove('flash');
-            void currentPlayingChord.offsetWidth; 
-            currentPlayingChord.classList.add('flash');
+            currentPlayingChord.textContent = name; currentPlayingChord.classList.remove('flash');
+            void currentPlayingChord.offsetWidth; currentPlayingChord.classList.add('flash');
         }
 
         function updateKeyUI(songData) {
             const originalOffset = parseInt(songData.originalOffset || 0);
-            if (currentTranspose === originalOffset) {
-                originalKeyBtn.classList.add('is-original'); originalKeyBtn.textContent = "★ Original";
-            } else {
-                originalKeyBtn.classList.remove('is-original'); originalKeyBtn.textContent = "Original";
-            }
+            if (currentTranspose === originalOffset) { originalKeyBtn.classList.add('is-original'); originalKeyBtn.textContent = "★ Original"; } 
+            else { originalKeyBtn.classList.remove('is-original'); originalKeyBtn.textContent = "Original"; }
             keySelector.value = currentTranspose;
         }
 
         function loadSong(songTitle) {
-            currentSongTitle = songTitle;
-            const songData = songDatabase[songTitle];
-            if (!songData) return;
+            currentSongTitle = songTitle; const songData = songDatabase[songTitle]; if (!songData) return;
             exitEditMode();
-            const savedKey = localStorage.getItem(`myKey_${songTitle}`);
-            currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
+            const savedKey = localStorage.getItem(`myKey_${songTitle}`); currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
             updateKeyUI(songData);
             
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
-            lyricDisplay.innerHTML = formattedLyrics;
-            lyricDisplay.scrollTop = 0; currentScrollY = 0;
-            if (isScrolling) scrollBtn.click(); 
+            lyricDisplay.innerHTML = formattedLyrics; lyricDisplay.scrollTop = 0; currentScrollY = 0; if (isScrolling) scrollBtn.click(); 
             
             originalChordsArray = [...songData.chords]; 
             const savedOrderStr = localStorage.getItem(`customOrder_${songTitle}`);
             if (savedOrderStr) {
                 try {
                     const savedOrderNames = JSON.parse(savedOrderStr);
-                    currentChordsArray = savedOrderNames.map(name => {
-                        return originalChordsArray.find(c => c.name === name) || {name: name, notes: "C4"}; 
-                    });
+                    currentChordsArray = savedOrderNames.map(name => { return originalChordsArray.find(c => c.name === name) || {name: name, notes: "C4"}; });
                 } catch(e) { currentChordsArray = [...originalChordsArray]; }
             } else { currentChordsArray = [...originalChordsArray]; }
             
             renderChords();
-            
-            if (currentChordsArray.length > 0) {
-                currentNotes = currentChordsArray[0].notes.split(',');
-                currentChordName = currentChordsArray[0].name;
-                drawVisualStrings(); 
-            }
+            if (currentChordsArray.length > 0) { currentNotes = currentChordsArray[0].notes.split(','); currentChordName = currentChordsArray[0].name; drawVisualStrings(); }
         }
 
-        // ★★★ JSでのGridのcols/rows計算を完全削除！ CSS（nth-child）の力で全モードを制御！ ★★★
         function renderChords() {
-            chordArea.innerHTML = ""; 
+            chordArea.innerHTML = ""; chordArea.className = ''; if (isEditMode) chordArea.classList.add('edit-mode');
+            const count = currentChordsArray.length;
+            if (currentMode === 'free') { chordArea.classList.add('grid-tier-1'); } 
+            else {
+                if (count <= 8) { chordArea.classList.add('grid-tier-1'); } 
+                else if (count <= 12) { chordArea.classList.add('grid-tier-2'); } 
+                else { chordArea.classList.add('grid-tier-3'); }
+            }
             
             currentChordsArray.forEach((chord, index) => {
-                const btn = document.createElement('div');
-                btn.className = 'chord-btn';
+                const btn = document.createElement('div'); btn.className = 'chord-btn';
                 if (index === 0 && !isEditMode) btn.classList.add('active'); 
                 
                 if (currentMode === 'free') {
                     const root = chord.root || chord.name.replace(/m$/, '');
-                    btn.innerHTML = `
-                        ${chord.name}
-                        <span class="gesture-hint hint-up">maj7</span>
-                        <span class="gesture-hint hint-down">7</span>
-                        <span class="gesture-hint hint-left">m</span>
-                        <span class="gesture-hint hint-right">sus4</span>
-                    `;
-                } else {
-                    btn.textContent = chord.name;
-                }
+                    btn.innerHTML = `${chord.name}<span class="gesture-hint hint-up">maj7</span><span class="gesture-hint hint-down">7</span><span class="gesture-hint hint-left">m</span><span class="gesture-hint hint-right">sus4</span>`;
+                } else { btn.innerHTML = `<span>${chord.name}</span>`; }
                 
-                btn.setAttribute('data-base-name', chord.name);
-                btn.setAttribute('data-notes', chord.notes);
-                btn.setAttribute('data-index', index);
-                
-                btn.addEventListener('pointerdown', handlePointerDown);
-                btn.addEventListener('pointerup', handlePointerUp);
-                btn.addEventListener('pointermove', handlePointerMove);
-                btn.addEventListener('pointercancel', handlePointerUp);
-                
-                if(isEditMode) btn.classList.add('jiggling');
-                chordArea.appendChild(btn);
+                btn.setAttribute('data-base-name', chord.name); btn.setAttribute('data-notes', chord.notes); btn.setAttribute('data-index', index);
+                btn.addEventListener('pointerdown', handlePointerDown); btn.addEventListener('pointerup', handlePointerUp);
+                btn.addEventListener('pointermove', handlePointerMove); btn.addEventListener('pointercancel', handlePointerUp);
+                if(isEditMode) btn.classList.add('jiggling'); chordArea.appendChild(btn);
             });
         }
 
         function drawVisualStrings() {
-            stringsContainer.innerHTML = ''; 
-            const count = currentNotes.length;
-            if (count === 0) return;
+            stringsContainer.innerHTML = ''; const count = currentNotes.length; if (count === 0) return;
             for (let i = 0; i < count; i++) {
                 const zone = document.createElement('div'); zone.className = 'string-zone';
                 const str = document.createElement('div'); str.className = 'visual-string';
-                str.id = 'v-string-' + ((count - 1) - i);
-                zone.appendChild(str); stringsContainer.appendChild(zone);
+                str.id = 'v-string-' + ((count - 1) - i); zone.appendChild(str); stringsContainer.appendChild(zone);
             }
         }
 
         function handlePointerDown(e) {
-            initialPointerEvent = e;
-            const element = this;
-            
+            initialPointerEvent = e; const element = this;
             if (currentMode === 'song') {
                 if (isEditMode) { startDrag(e, this); return; }
-                longPressTimer = setTimeout(() => { 
-                    enterEditMode(); 
-                    startDrag(initialPointerEvent, element);
-                }, 800);
+                longPressTimer = setTimeout(() => { enterEditMode(); startDrag(initialPointerEvent, element); }, 800);
             }
-            
-            if (!this.classList.contains('active')) {
-                document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-            }
-            
-            currentChordName = this.getAttribute('data-base-name');
-            currentNotes = this.getAttribute('data-notes').split(',');
-            updateFreeModeDisplay(currentChordName);
-            drawVisualStrings();
-            softMute();
+            if (!this.classList.contains('active')) { document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); }
+            currentChordName = this.getAttribute('data-base-name'); currentNotes = this.getAttribute('data-notes').split(',');
+            updateFreeModeDisplay(currentChordName); drawVisualStrings(); softMute();
         }
 
-        function handlePointerUp(e) {
-            clearTimeout(longPressTimer); 
-            if (isEditMode && draggedElement) { endDrag(e); }
-        }
+        function handlePointerUp(e) { clearTimeout(longPressTimer); if (isEditMode && draggedElement) { endDrag(e); } }
 
         function handlePointerMove(e) {
             if (currentMode === 'song' && !isEditMode) { 
-                if (initialPointerEvent && (Math.abs(e.clientX - initialPointerEvent.clientX) > 10 || Math.abs(e.clientY - initialPointerEvent.clientY) > 10)) {
-                    clearTimeout(longPressTimer);
-                }
+                if (initialPointerEvent && (Math.abs(e.clientX - initialPointerEvent.clientX) > 10 || Math.abs(e.clientY - initialPointerEvent.clientY) > 10)) { clearTimeout(longPressTimer); }
             } 
-            else if (isEditMode && draggedElement) { 
-                moveDrag(e); 
-            }
+            else if (isEditMode && draggedElement) { moveDrag(e); }
             else if (currentMode === 'free' && initialPointerEvent) {
-                const dx = e.clientX - initialPointerEvent.clientX;
-                const dy = e.clientY - initialPointerEvent.clientY;
+                const dx = e.clientX - initialPointerEvent.clientX; const dy = e.clientY - initialPointerEvent.clientY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                
                 if (dist > 20) { 
-                    let baseName = this.getAttribute('data-base-name');
-                    let root = baseName.replace(/m$/, ''); 
-                    let newChordName = baseName;
-
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        if (dx > 0) newChordName = root + "sus4"; 
-                        else newChordName = root + "m"; 
-                    } else {
-                        if (dy > 0) newChordName = root + "7"; 
-                        else newChordName = root + "maj7"; 
-                    }
-                    
+                    let baseName = this.getAttribute('data-base-name'); let root = baseName.replace(/m$/, ''); let newChordName = baseName;
+                    if (Math.abs(dx) > Math.abs(dy)) { if (dx > 0) newChordName = root + "sus4"; else newChordName = root + "m"; } 
+                    else { if (dy > 0) newChordName = root + "7"; else newChordName = root + "maj7"; }
                     if (masterChordDictionary[newChordName] && currentChordName !== newChordName) {
-                        currentChordName = newChordName;
-                        currentNotes = masterChordDictionary[newChordName].split(',');
-                        updateFreeModeDisplay(currentChordName);
-                        drawVisualStrings();
-                        softMute();
+                        currentChordName = newChordName; currentNotes = masterChordDictionary[newChordName].split(',');
+                        updateFreeModeDisplay(currentChordName); drawVisualStrings(); softMute();
                     }
                 }
             }
@@ -524,8 +437,7 @@
         function enterEditMode() {
             if (isEditMode) return;
             isEditMode = true; chordArea.classList.add('edit-mode'); editHeader.style.display = 'flex';
-            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); });
-            forceMute();
+            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); }); forceMute();
         }
         function exitEditMode() {
             isEditMode = false; chordArea.classList.remove('edit-mode'); editHeader.style.display = 'none';
@@ -534,185 +446,92 @@
             if(firstBtn) { firstBtn.classList.add('active'); currentNotes = firstBtn.getAttribute('data-notes').split(','); drawVisualStrings(); }
         }
 
-        // ★ ダミー箱を親の階層へ移動して、nth-childの魔法を維持する
         let startY, startX, initialRect;
         function startDrag(e, el) {
-            draggedElement = el; 
-            
-            // ドラッグ要素の元のサイズを保存
-            initialRect = draggedElement.getBoundingClientRect(); 
-            const appRect = document.getElementById('app-container').getBoundingClientRect();
-            
-            // ダミー箱を元の場所に挿入（これが自動的に縦横に変形する！）
-            placeholder = document.createElement('div'); 
-            placeholder.className = 'chord-placeholder'; 
-            chordArea.insertBefore(placeholder, draggedElement);
-            
-            // 浮遊ボタンを #app-container に移動（nth-childのカウントから外す）
+            draggedElement = el; initialRect = draggedElement.getBoundingClientRect(); const appRect = document.getElementById('app-container').getBoundingClientRect();
+            placeholder = document.createElement('div'); placeholder.className = 'chord-placeholder'; chordArea.insertBefore(placeholder, draggedElement);
             document.getElementById('app-container').appendChild(draggedElement);
-            
-            draggedElement.classList.add('dragging'); 
-            draggedElement.classList.remove('jiggling');
-            draggedElement.style.position = 'absolute'; 
-            draggedElement.style.width = initialRect.width + 'px'; 
-            draggedElement.style.height = initialRect.height + 'px';
-            
-            // #app-container 基準の絶対座標
-            draggedElement.style.left = (initialRect.left - appRect.left) + 'px'; 
-            draggedElement.style.top = (initialRect.top - appRect.top) + 'px';
-            
-            startX = e.clientX; startY = e.clientY; 
-            draggedElement.setPointerCapture(e.pointerId);
+            draggedElement.classList.add('dragging'); draggedElement.classList.remove('jiggling');
+            draggedElement.style.position = 'absolute'; draggedElement.style.width = initialRect.width + 'px'; draggedElement.style.height = initialRect.height + 'px';
+            draggedElement.style.left = (initialRect.left - appRect.left) + 'px'; draggedElement.style.top = (initialRect.top - appRect.top) + 'px';
+            startX = e.clientX; startY = e.clientY; draggedElement.setPointerCapture(e.pointerId);
         }
 
         function moveDrag(e) {
             const dx = e.clientX - startX; const dy = e.clientY - startY;
             draggedElement.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
-            
-            // 裏にある要素を探すために、一瞬だけ浮遊ボタンのポインターイベントを消す
-            draggedElement.style.pointerEvents = 'none';
-            const overElement = document.elementFromPoint(e.clientX, e.clientY);
-            draggedElement.style.pointerEvents = 'auto';
-
+            draggedElement.style.pointerEvents = 'none'; const overElement = document.elementFromPoint(e.clientX, e.clientY); draggedElement.style.pointerEvents = 'auto';
             if (overElement && overElement.classList.contains('chord-btn')) {
-                const overRect = overElement.getBoundingClientRect();
-                const isAfter = (e.clientY > overRect.top + overRect.height / 2) || (e.clientX > overRect.left + overRect.width / 2);
-                // ダミー箱が移動することで、CSSの nth-child がリアルタイムに適用され、形がカシャカシャと変異する！
+                const overRect = overElement.getBoundingClientRect(); const isAfter = (e.clientY > overRect.top + overRect.height / 2) || (e.clientX > overRect.left + overRect.width / 2);
                 if (isAfter) { overElement.after(placeholder); } else { overElement.before(placeholder); }
             }
         }
 
         function endDrag(e) {
             draggedElement.releasePointerCapture(e.pointerId);
-            draggedElement.style.position = ''; draggedElement.style.width = ''; draggedElement.style.height = '';
-            draggedElement.style.left = ''; draggedElement.style.top = ''; draggedElement.style.transform = '';
+            draggedElement.style.position = ''; draggedElement.style.width = ''; draggedElement.style.height = ''; draggedElement.style.left = ''; draggedElement.style.top = ''; draggedElement.style.transform = '';
             draggedElement.classList.remove('dragging'); draggedElement.classList.add('jiggling');
-            
-            // 浮遊ボタンをダミー箱の場所に戻す（これで完了）
-            placeholder.replaceWith(draggedElement); 
-            placeholder = null; draggedElement = null;
+            placeholder.replaceWith(draggedElement); placeholder = null; draggedElement = null;
         }
 
         saveOrderBtn.onclick = () => {
             const newArray = []; const newNames = [];
-            chordArea.querySelectorAll('.chord-btn').forEach(btn => {
-                const name = btn.getAttribute('data-base-name'); // UI文字ではなく本当のコード名を取得
-                const notes = btn.getAttribute('data-notes');
-                newArray.push({name: name, notes: notes}); newNames.push(name);
-            });
-            currentChordsArray = newArray;
-            localStorage.setItem(`customOrder_${currentSongTitle}`, JSON.stringify(newNames));
-            exitEditMode(); renderChords(); 
-            toast.style.opacity = 1; setTimeout(() => { toast.style.opacity = 0; }, 2000);
+            chordArea.querySelectorAll('.chord-btn').forEach(btn => { const name = btn.getAttribute('data-base-name'); const notes = btn.getAttribute('data-notes'); newArray.push({name: name, notes: notes}); newNames.push(name); });
+            currentChordsArray = newArray; localStorage.setItem(`customOrder_${currentSongTitle}`, JSON.stringify(newNames));
+            exitEditMode(); renderChords(); toast.style.opacity = 1; setTimeout(() => { toast.style.opacity = 0; }, 2000);
         };
         resetOrderBtn.onclick = () => {
-            if(confirm("初期状態に戻しますか？")) {
-                localStorage.removeItem(`customOrder_${currentSongTitle}`);
-                currentChordsArray = [...originalChordsArray];
-                exitEditMode(); renderChords();
-            }
+            if(confirm("初期状態に戻しますか？")) { localStorage.removeItem(`customOrder_${currentSongTitle}`); currentChordsArray = [...originalChordsArray]; exitEditMode(); renderChords(); }
         };
 
-        keySelector.onchange = (e) => { 
-            softMute(); currentTranspose = parseInt(e.target.value); 
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]);
-        };
-        originalKeyBtn.onclick = () => {
-            const songData = songDatabase[currentSongTitle];
-            if(!songData) return;
-            softMute(); currentTranspose = parseInt(songData.originalOffset || 0);
-            localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData);
-        };
+        keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
+        originalKeyBtn.onclick = () => { const songData = songDatabase[currentSongTitle]; if(!songData) return; softMute(); currentTranspose = parseInt(songData.originalOffset || 0); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData); };
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
-            if (isScrolling) {
-                scrollBtn.textContent = "⏸ Pause"; scrollBtn.style.backgroundColor = "#d4af37"; scrollBtn.style.color = "#1a1a1a";
-                currentScrollY = lyricDisplay.scrollTop; lastTime = performance.now(); 
-                scrollAnimationFrame = requestAnimationFrame(autoScroll);
-            } else {
-                scrollBtn.textContent = "▶ Scroll"; scrollBtn.style.backgroundColor = "#333"; scrollBtn.style.color = "#d4af37";
-                cancelAnimationFrame(scrollAnimationFrame);
-            }
+            if (isScrolling) { scrollBtn.textContent = "⏸ Pause"; scrollBtn.style.backgroundColor = "#d4af37"; scrollBtn.style.color = "#1a1a1a"; currentScrollY = lyricDisplay.scrollTop; lastTime = performance.now(); scrollAnimationFrame = requestAnimationFrame(autoScroll); } 
+            else { scrollBtn.textContent = "▶ Scroll"; scrollBtn.style.backgroundColor = "#333"; scrollBtn.style.color = "#d4af37"; cancelAnimationFrame(scrollAnimationFrame); }
         };
         function autoScroll(timestamp) {
-            if (!isScrolling) return;
-            const deltaTime = timestamp - lastTime; lastTime = timestamp;
-            const pixelsPerSecond = parseInt(scrollSpeed.value);
-            currentScrollY += pixelsPerSecond * (deltaTime / 1000);
-            lyricDisplay.scrollTop = currentScrollY;
+            if (!isScrolling) return; const deltaTime = timestamp - lastTime; lastTime = timestamp; const pixelsPerSecond = parseInt(scrollSpeed.value); currentScrollY += pixelsPerSecond * (deltaTime / 1000); lyricDisplay.scrollTop = currentScrollY;
             if (lyricDisplay.scrollTop + lyricDisplay.clientHeight >= lyricDisplay.scrollHeight - 1) { scrollBtn.click(); return; }
             scrollAnimationFrame = requestAnimationFrame(autoScroll);
         }
-        lyricDisplay.addEventListener('touchstart', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
-        lyricDisplay.addEventListener('wheel', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
+        lyricDisplay.addEventListener('touchstart', () => { if (isScrolling) scrollBtn.click(); }, { passive: true }); lyricDisplay.addEventListener('wheel', () => { if (isScrolling) scrollBtn.click(); }, { passive: true });
 
-        let isStrumming = false;
-        let pluckedStrings = new Set();
-        let strumRect;
-        let lastStringIndex = -1;
-        let lastStrumTime = 0;
+        let isStrumming = false; let pluckedStrings = new Set(); let strumRect; let lastStringIndex = -1; let lastStrumTime = 0;
 
         strumArea.addEventListener('pointerdown', (e) => {
             if (!synth || currentNotes.length === 0) return;
-            isStrumming = true; pluckedStrings.clear(); lastStringIndex = -1;
-            lastStrumTime = performance.now();
-            strumRect = stringsContainer.getBoundingClientRect();
-            strumArea.setPointerCapture(e.pointerId);
-            processStrum(e);
+            isStrumming = true; pluckedStrings.clear(); lastStringIndex = -1; lastStrumTime = performance.now();
+            strumRect = stringsContainer.getBoundingClientRect(); strumArea.setPointerCapture(e.pointerId); processStrum(e);
         });
-        strumArea.addEventListener('pointermove', (e) => {
-            if (!isStrumming) return;
-            processStrum(e);
-        });
-        strumArea.addEventListener('pointerup', (e) => {
-            isStrumming = false; strumArea.releasePointerCapture(e.pointerId);
-        });
+        strumArea.addEventListener('pointermove', (e) => { if (!isStrumming) return; processStrum(e); });
+        strumArea.addEventListener('pointerup', (e) => { isStrumming = false; strumArea.releasePointerCapture(e.pointerId); });
 
         function processStrum(e) {
-            const yPos = e.clientY - strumRect.top;
-            const stringCount = currentNotes.length;
-            const stringSpacing = strumRect.height / stringCount;
+            const yPos = e.clientY - strumRect.top; const stringCount = currentNotes.length; const stringSpacing = strumRect.height / stringCount;
             let stringIndex = (stringCount - 1) - Math.floor(yPos / stringSpacing);
-            if (stringIndex < 0) stringIndex = 0;
-            if (stringIndex >= stringCount) stringIndex = stringCount - 1;
+            if (stringIndex < 0) stringIndex = 0; if (stringIndex >= stringCount) stringIndex = stringCount - 1;
 
-            const now = performance.now();
-            const timeDiff = now - lastStrumTime;
-            lastStrumTime = now;
+            const now = performance.now(); const timeDiff = now - lastStrumTime; lastStrumTime = now;
             let velocity = 0.8;
-            if (timeDiff > 0 && lastStringIndex !== -1) {
-                const speed = Math.abs(stringIndex - lastStringIndex) / timeDiff;
-                velocity = Math.min(1.0, Math.max(0.4, speed * 20)); 
-            }
+            if (timeDiff > 0 && lastStringIndex !== -1) { const speed = Math.abs(stringIndex - lastStringIndex) / timeDiff; velocity = Math.min(1.0, Math.max(0.4, speed * 20)); }
 
             if (lastStringIndex !== -1 && lastStringIndex !== stringIndex) {
-                const step = stringIndex > lastStringIndex ? 1 : -1;
-                let i = lastStringIndex + step;
-                while (true) {
-                    if (!pluckedStrings.has(i)) { triggerString(i, velocity); }
-                    if (i === stringIndex) break;
-                    i += step;
-                }
-            } else if (lastStringIndex === -1) {
-                triggerString(stringIndex, velocity);
-            }
+                const step = stringIndex > lastStringIndex ? 1 : -1; let i = lastStringIndex + step;
+                while (true) { if (!pluckedStrings.has(i)) { triggerString(i, velocity); } if (i === stringIndex) break; i += step; }
+            } else if (lastStringIndex === -1) { triggerString(stringIndex, velocity); }
             lastStringIndex = stringIndex;
             if (navigator.vibrate) navigator.vibrate(2); 
         }
 
         function triggerString(index, velocity) {
-            pluckedStrings.add(index);
-            const note = currentNotes[index];
-            if (!note) return;
+            pluckedStrings.add(index); const note = currentNotes[index]; if (!note) return;
             try {
                 const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
                 synth.triggerAttack(transposedNote, Tone.now(), velocity);
-                
                 const vStr = document.getElementById('v-string-' + index);
-                if (vStr) {
-                    vStr.classList.add('plucked');
-                    setTimeout(() => { vStr.classList.remove('plucked'); }, 150);
-                }
+                if (vStr) { vStr.classList.add('plucked'); setTimeout(() => { vStr.classList.remove('plucked'); }, 150); }
                 updateFreeModeDisplay(currentChordName);
             } catch(err) { console.warn(err); }
         }
@@ -723,38 +542,21 @@
         function initSongSelector() {
             const currentVal = songSelector.value; songSelector.innerHTML = "";
             for (const title in songDatabase) { const opt = document.createElement('option'); opt.value = title; opt.textContent = title; songSelector.appendChild(opt); }
-            if (currentVal) songSelector.value = currentVal;
-            songSelector.onchange = (e) => loadSong(e.target.value);
+            if (currentVal) songSelector.value = currentVal; songSelector.onchange = (e) => loadSong(e.target.value);
         }
 
-        const adminPanel = document.getElementById('admin-panel');
-        const adminModeSelector = document.getElementById('admin-mode-selector');
-        const titleInput = document.getElementById('new-title');
-        const originalOffsetInput = document.getElementById('original-offset');
-        const lyricsInput = document.getElementById('new-lyrics');
-        const chordContainer = document.getElementById('chord-dropdown-container');
-
+        const adminPanel = document.getElementById('admin-panel'); const adminModeSelector = document.getElementById('admin-mode-selector'); const titleInput = document.getElementById('new-title'); const originalOffsetInput = document.getElementById('original-offset'); const lyricsInput = document.getElementById('new-lyrics'); const chordContainer = document.getElementById('chord-dropdown-container');
         const rootOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
         const qualityOptions = [ { label: "Major(なし)", value: "" }, { label: "m", value: "m" }, { label: "7", value: "7" }, { label: "m7", value: "m7" }, { label: "sus4", value: "sus4" }, { label: "add9", value: "add9" }, { label: "maj7", value: "maj7" } ];
 
-        document.getElementById('open-admin').onclick = () => {
-            adminModeSelector.innerHTML = '<option value="">✨ 新規作成 (Create New Song)</option>';
-            for (const title in songDatabase) {
-                const opt = document.createElement('option'); opt.value = title; opt.textContent = `✏️ 編集: ${title}`; adminModeSelector.appendChild(opt);
-            }
-            adminPanel.style.display = 'block';
-        };
+        document.getElementById('open-admin').onclick = () => { adminModeSelector.innerHTML = '<option value="">✨ 新規作成 (Create New Song)</option>'; for (const title in songDatabase) { const opt = document.createElement('option'); opt.value = title; opt.textContent = `✏️ 編集: ${title}`; adminModeSelector.appendChild(opt); } adminPanel.style.display = 'block'; };
         document.getElementById('close-admin').onclick = () => adminPanel.style.display = 'none';
         adminModeSelector.onchange = (e) => {
             const selectedTitle = e.target.value; chordContainer.innerHTML = ''; 
             if (!selectedTitle) { titleInput.value = ''; lyricsInput.value = ''; originalOffsetInput.value = "0"; } 
             else {
-                const song = songDatabase[selectedTitle];
-                titleInput.value = selectedTitle; lyricsInput.value = song.lyrics; originalOffsetInput.value = song.originalOffset || "0"; 
-                song.chords.forEach(chord => {
-                    let root = (chord.name.length > 1 && (chord.name[1] === '#' || chord.name[1] === 'b')) ? chord.name.substring(0, 2) : chord.name.substring(0, 1);
-                    createChordDropdown(root, chord.name.substring(root.length));
-                });
+                const song = songDatabase[selectedTitle]; titleInput.value = selectedTitle; lyricsInput.value = song.lyrics; originalOffsetInput.value = song.originalOffset || "0"; 
+                song.chords.forEach(chord => { let root = (chord.name.length > 1 && (chord.name[1] === '#' || chord.name[1] === 'b')) ? chord.name.substring(0, 2) : chord.name.substring(0, 1); createChordDropdown(root, chord.name.substring(root.length)); });
             }
         };
         function createChordDropdown(defaultRoot = "C", defaultQuality = "") {
@@ -765,61 +567,46 @@
             qualityOptions.forEach(q => { const opt = document.createElement('option'); opt.value = q.value; opt.textContent = q.label; if(q.value === defaultQuality) opt.selected = true; qualitySelect.appendChild(opt); });
             wrapper.appendChild(rootSelect); wrapper.appendChild(qualitySelect); chordContainer.appendChild(wrapper);
         }
-        document.getElementById('add-chord-btn').onclick = () => createChordDropdown();
-        document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
+        document.getElementById('add-chord-btn').onclick = () => createChordDropdown(); document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
         function surgicalSplit(initialTokens) {
             let processedTokens = []; const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
-            for (let t of initialTokens) {
-                let cleanT = t.replace(/\[|\]/g, ""); let match = cleanT.match(gluedRegex);
-                if (match) { processedTokens.push(match[1]); processedTokens.push(match[2]); continue; }
-                processedTokens.push(t); 
-            } return processedTokens;
+            for (let t of initialTokens) { let cleanT = t.replace(/\[|\]/g, ""); let match = cleanT.match(gluedRegex); if (match) { processedTokens.push(match[1]); processedTokens.push(match[2]); continue; } processedTokens.push(t); } return processedTokens;
         }
 
         document.getElementById('auto-extract-btn').onclick = () => {
             const text = document.getElementById('new-lyrics').value; if (!text) return alert("テキストを貼り付けてください！");
             let tokens = surgicalSplit(text.split(/[\s\n\t　]+/)); let foundUniqueChords = new Set(); const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
-            tokens.forEach(token => {
-                let cleanToken = token.trim().replace(/\[|\]/g, "");
-                if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && (chordRegex.test(cleanToken) || masterChordDictionary[cleanToken])) { foundUniqueChords.add(cleanToken); }
-            });
+            tokens.forEach(token => { let cleanToken = token.trim().replace(/\[|\]/g, ""); if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && (chordRegex.test(cleanToken) || masterChordDictionary[cleanToken])) { foundUniqueChords.add(cleanToken); } });
             chordContainer.innerHTML = '';
-            foundUniqueChords.forEach(chordName => {
-                let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1);
-                createChordDropdown(root, chordName.substring(root.length));
-            });
+            foundUniqueChords.forEach(chordName => { let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1); createChordDropdown(root, chordName.substring(root.length)); });
         };
 
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
             let tokens = surgicalSplit(rawLyrics.split(/[\s\t\n\r　]+/)).filter(t => t !== "");
             let resultText = ""; let pendingChords = [];
-            for (let token of tokens) {
-                let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token);
-                if (!hasJapanese) {
-                    let cleanToken = token.replace(/\[|\]/g, "");
-                    if (cleanToken.toUpperCase().startsWith("N.C") || masterChordDictionary[cleanToken]) { pendingChords.push(cleanToken); }
-                } else {
-                    let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : "";
-                    resultText += (resultText ? "　" : "") + chordStr + token; pendingChords = [];
-                }
-            }
+            for (let token of tokens) { let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token); if (!hasJapanese) { let cleanToken = token.replace(/\[|\]/g, ""); if (cleanToken.toUpperCase().startsWith("N.C") || masterChordDictionary[cleanToken]) { pendingChords.push(cleanToken); } } else { let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : ""; resultText += (resultText ? "　" : "") + chordStr + token; pendingChords = []; } }
             if (pendingChords.length > 0) { resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join(""); }
-            
-            const chordsArray = Array.from(chordContainer.querySelectorAll('.chord-group')).map(group => {
-                const combinedName = group.querySelectorAll('select')[0].value + group.querySelectorAll('select')[1].value; 
-                return { name: combinedName, notes: masterChordDictionary[combinedName] || "C4,E4,G4" };
-            });
-
-            if (!title || !resultText) return alert("曲名と歌詞は必須です！");
-            document.getElementById('submit-song').textContent = "Uploading...";
-            try {
-                const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ title: title, lyrics: resultText, chords: JSON.stringify(chordsArray), originalOffset: originalOffset }) });
-                const result = await response.json();
-                if (result.status === "success") { location.reload(); } else { throw new Error(result.message); }
-            } catch (error) { alert("エラー: " + error); }
+            const chordsArray = Array.from(chordContainer.querySelectorAll('.chord-group')).map(group => { const combinedName = group.querySelectorAll('select')[0].value + group.querySelectorAll('select')[1].value; return { name: combinedName, notes: masterChordDictionary[combinedName] || "C4,E4,G4" }; });
+            if (!title || !resultText) return alert("曲名と歌詞は必須です！"); document.getElementById('submit-song').textContent = "Uploading...";
+            try { const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ title: title, lyrics: resultText, chords: JSON.stringify(chordsArray), originalOffset: originalOffset }) }); const result = await response.json(); if (result.status === "success") { location.reload(); } else { throw new Error(result.message); } } catch (error) { alert("エラー: " + error); }
         };
+
+        // ==========================================
+        // ★ Android専用：ブラウザバック（戻るスワイプ）の完全封殺ハック
+        // ==========================================
+        history.pushState(null, null, location.href);
+        window.addEventListener('popstate', (e) => {
+            history.go(1);
+            toast.textContent = "Back gesture is disabled.";
+            toast.style.background = "#e74c3c"; 
+            toast.style.opacity = 1;
+            setTimeout(() => { 
+                toast.style.opacity = 0; 
+                setTimeout(() => { toast.style.background = "#4CAF50"; toast.textContent = "Layout Saved!"; }, 300);
+            }, 2000);
+        });
 
         fetchSongData();
     </script>
