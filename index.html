@@ -485,7 +485,15 @@
         };
 
         keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
-        originalKeyBtn.onclick = () => { const songData = songDatabase[currentSongTitle]; if(!songData) return; softMute(); currentTranspose = parseInt(songData.originalOffset || 0); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData); };
+        originalKeyBtn.onclick = () => {
+    const songData = songDatabase[currentSongTitle];
+    if(!songData) return;
+    softMute();
+    // ★ originalOffset（譜面のズレ）の「逆」をセットする！
+    currentTranspose = -(parseInt(songData.originalOffset || 0)); 
+    localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
+    updateKeyUI(songData);
+};
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
             if (isScrolling) { scrollBtn.textContent = "⏸ Pause"; scrollBtn.style.backgroundColor = "#d4af37"; scrollBtn.style.color = "#1a1a1a"; currentScrollY = lyricDisplay.scrollTop; lastTime = performance.now(); scrollAnimationFrame = requestAnimationFrame(autoScroll); } 
