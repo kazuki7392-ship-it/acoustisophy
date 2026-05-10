@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://via.placeholder.com/192/d4af37/1a1a1a?text=AcoustiSophy">
     
-    <title>AcoustiSophy - v10.3 The Silent Mute</title>
+    <title>AcoustiSophy - v10.4 Orchestration</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -28,6 +28,10 @@
         
         #controls { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
         #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; }
+        
+        /* ★ 新設：楽器セレクターのデザイン */
+        #instrument-selector { padding: 10px; background: #1a1a1a; color: #d4af37; border: 1px solid #d4af37; border-radius: 8px; font-weight: bold; font-size: 14px; outline: none; }
+        
         #key-control-group { display: flex; align-items: center; gap: 5px; background: #1a1a1a; padding: 4px; border-radius: 8px; border: 1px solid #444; }
         #original-key-btn { background: #444; color: #aaa; border: none; padding: 8px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; }
         #original-key-btn.is-original { background: #d4af37; color: #1a1a1a; }
@@ -37,7 +41,6 @@
         #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; }
         #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
 
-        /* ★ 新設：専用のLayout Editスイッチ（安全地帯に配置） */
         #layout-lock-btn { background: #1a1a1a; color: #aaa; border: 1px solid #555; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.3s; }
         #layout-lock-btn.unlocked { background: #d4af37; color: #1a1a1a; border-color: #d4af37; box-shadow: 0 0 10px rgba(212,175,55,0.5); }
         
@@ -116,6 +119,13 @@
         <div id="song-mode-ui">
             <div id="controls">
                 <select id="song-selector"></select>
+                <select id="instrument-selector">
+                    <option value="acoustic">🎸 Acoustic Guitar</option>
+                    <option value="strings">🎻 Orchestra Strings</option>
+                    <option value="epiano">🎹 Electric Piano</option>
+                    <option value="8bit">👾 8-Bit Retro</option>
+                </select>
+                
                 <div id="key-control-group">
                     <button id="original-key-btn">Original</button>
                     <select id="key-selector">
@@ -199,8 +209,6 @@
         const currentPlayingChord = document.getElementById('current-playing-chord');
         const freeKeySelector = document.getElementById('free-key-selector');
 
-        let currentMode = 'song'; 
-
         const songSelector = document.getElementById('song-selector');
         const keySelector = document.getElementById('key-selector');
         const originalKeyBtn = document.getElementById('original-key-btn');
@@ -209,9 +217,9 @@
         const strumArea = document.getElementById('strum-area');
         const stringsContainer = document.getElementById('visual-strings-container');
         
-        // ★新設：Layout ロックスイッチ
         const layoutLockBtn = document.getElementById('layout-lock-btn');
         const layoutLockBtnFree = document.getElementById('layout-lock-btn-free');
+        const instrumentSelector = document.getElementById('instrument-selector');
         
         const editHeader = document.getElementById('edit-header');
         const resetOrderBtn = document.getElementById('reset-order-btn');
@@ -223,11 +231,16 @@
         const scrollSpeed = document.getElementById('scroll-speed');
 
         let songDatabase = {}; 
-        let synth;
+        
+        // ★ 音源エンジンの管理
+        let samplers = {};
+        let synths = {};
+        let activeEngine = null; // 現在鳴らすべき楽器
+        
         let currentNotes = []; 
         let currentChordName = ""; 
         let currentTranspose = 0; 
-        let activeNotes = []; // ★これを修正し、正しくミュートできるようにしました
+        let activeNotes = []; 
         let currentSongTitle = "";
         
         let currentChordsArray = []; 
@@ -237,6 +250,7 @@
         let draggedElement = null;
         let placeholder = null;
         let initialPointerEvent = null;
+        let currentMode = 'song'; 
 
         const masterChordDictionary = {
             "C": "C3,E3,G3,C4,E4", "Cm": "C3,G3,C4,Eb4,G4", "C7": "C3,E3,Bb3,C4,E4", "Cm7": "C3,G3,Bb3,Eb4,G4", "Csus4": "C3,F3,G3,C4,F4", "Cadd9": "C3,E3,G3,D4,E4", "Cmaj7": "C3,E3,G3,B3,E4",
@@ -276,16 +290,66 @@
             } catch (error) { console.error("Cloud Sync Failed:", error); startBtn.textContent = "Start (Offline Mode)"; }
         }
 
+        // ★ 音源エンジンの初期化（Sampler ＋ PolySynth群）
+        function initAudioEngines() {
+            // 1. Acoustic Guitar (Sampler - mp3)
+            samplers['acoustic'] = new Tone.Sampler({
+                urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
+                baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/", release: 1.8,
+                onload: () => { 
+                    startOverlay.style.opacity = '0'; setTimeout(() => { startOverlay.style.display = 'none'; }, 500); 
+                }
+            }).toDestination();
+            samplers['acoustic'].volume.value = -2;
+
+            // 2. Orchestra Strings (Synth) - 立ち上がりが遅く、余韻が長い
+            synths['strings'] = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.5, decay: 0.2, sustain: 0.8, release: 2 }
+            }).toDestination();
+            synths['strings'].volume.value = -8; // 爆音防止リミッター
+
+            // 3. Electric Piano (Synth) - アタックが鋭く、ポロロンと鳴る
+            synths['epiano'] = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.01, decay: 0.5, sustain: 0.5, release: 1.2 }
+            }).toDestination();
+            synths['epiano'].volume.value = -5;
+
+            // 4. 8-Bit Retro (Synth) - ピコピコした矩形波
+            synths['8bit'] = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "square" },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.1 }
+            }).toDestination();
+            synths['8bit'].volume.value = -12; // 矩形波は耳に刺さるのでさらに音量を下げる
+
+            // 初期エンジンはアコギ
+            activeEngine = samplers['acoustic'];
+        }
+
+        // ★ 楽器切り替えイベント
+        instrumentSelector.onchange = (e) => {
+            forceMute(); // 変更前に必ず音を止める（ハウリング・バグ防止）
+            const type = e.target.value;
+            if (type === 'acoustic') {
+                activeEngine = samplers['acoustic'];
+            } else {
+                activeEngine = synths[type];
+            }
+            
+            // 楽器が変わったことを視覚的に知らせるためのエフェクト
+            toast.textContent = "Instrument Changed!";
+            toast.style.opacity = 1;
+            setTimeout(() => { toast.style.opacity = 0; }, 1000);
+        };
+
         startBtn.onclick = async () => {
             try {
-                await Tone.start(); startBtn.textContent = "Loading Real Sound...";
-                synth = new Tone.Sampler({
-                    urls: { "A2": "A2.mp3", "C3": "C3.mp3", "E3": "E3.mp3", "G3": "G3.mp3", "A3": "A3.mp3", "C4": "C4.mp3", "E4": "E4.mp3", "G4": "G4.mp3" },
-                    baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/", release: 1.8, 
-                    onload: () => { startOverlay.style.opacity = '0'; setTimeout(() => { startOverlay.style.display = 'none'; }, 500); }
-                }).toDestination();
-                synth.volume.value = -2;
-                initSongSelector(); loadSong(songSelector.value || Object.keys(songDatabase)[0]);
+                await Tone.start(); 
+                startBtn.textContent = "Loading Real Sound...";
+                initAudioEngines();
+                initSongSelector(); 
+                loadSong(songSelector.value || Object.keys(songDatabase)[0]);
             } catch (e) { console.error("Boot Error:", e); startOverlay.style.display = 'none'; }
         };
 
@@ -375,7 +439,6 @@
                 
                 btn.setAttribute('data-base-name', chord.name); btn.setAttribute('data-notes', chord.notes); btn.setAttribute('data-index', index);
                 
-                // ★ イベントリスナー登録
                 btn.addEventListener('pointerdown', handlePointerDown); 
                 btn.addEventListener('pointerup', handlePointerUp);
                 btn.addEventListener('pointermove', handlePointerMove); 
@@ -394,30 +457,20 @@
             }
         }
 
-        // ★ 新ロジック：長押しタイマーを完全排除し、タップミュートを実装
         function handlePointerDown(e) {
             initialPointerEvent = e; const element = this;
             
-            if (isEditMode) {
-                // 編集モードならドラッグ開始
-                startDrag(e, this); 
-                return; 
-            }
+            if (isEditMode) { startDrag(e, this); return; }
 
-            // 演奏モードの時
             if (this.classList.contains('active')) {
-                // ★ アクティブなボタンを叩いた時 ＝ ミュート発動！！
-                forceMute();
+                forceMute(); // タップミュート
             } else {
-                // ★ 違うボタンを叩いた時 ＝ コードチェンジ
                 document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active')); 
                 this.classList.add('active'); 
                 currentChordName = this.getAttribute('data-base-name'); 
                 currentNotes = this.getAttribute('data-notes').split(',');
                 updateFreeModeDisplay(currentChordName); 
                 drawVisualStrings(); 
-                
-                // 前の音を静かに消す（コードチェンジを自然にするため）
                 forceMute(); 
             }
         }
@@ -441,35 +494,20 @@
             }
         }
 
-        // ★ 新設：専用のLayoutロックスイッチでモード切替
-        function toggleLayoutMode() {
-            if(isEditMode) exitEditMode();
-            else enterEditMode();
-        }
-        layoutLockBtn.onclick = toggleLayoutMode;
-        layoutLockBtnFree.onclick = toggleLayoutMode;
+        function toggleLayoutMode() { if(isEditMode) exitEditMode(); else enterEditMode(); }
+        layoutLockBtn.onclick = toggleLayoutMode; layoutLockBtnFree.onclick = toggleLayoutMode;
 
         function enterEditMode() {
-            isEditMode = true; 
-            chordArea.classList.add('edit-mode'); 
-            editHeader.style.display = 'flex';
-            
-            // ボタンの見た目を変える
+            isEditMode = true; chordArea.classList.add('edit-mode'); editHeader.style.display = 'flex';
             layoutLockBtn.classList.add('unlocked'); layoutLockBtn.innerHTML = '🔓 Unlocked';
             layoutLockBtnFree.classList.add('unlocked'); layoutLockBtnFree.innerHTML = '🔓 Unlocked';
-            
             document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); }); 
             forceMute();
         }
         function exitEditMode() {
-            isEditMode = false; 
-            chordArea.classList.remove('edit-mode'); 
-            editHeader.style.display = 'none';
-            
-            // ボタンの見た目を戻す
+            isEditMode = false; chordArea.classList.remove('edit-mode'); editHeader.style.display = 'none';
             layoutLockBtn.classList.remove('unlocked'); layoutLockBtn.innerHTML = '🔒 Layout';
             layoutLockBtnFree.classList.remove('unlocked'); layoutLockBtnFree.innerHTML = '🔒 Layout';
-            
             document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('jiggling'));
             const firstBtn = chordArea.querySelector('.chord-btn');
             if(firstBtn) { firstBtn.classList.add('active'); currentNotes = firstBtn.getAttribute('data-notes').split(','); drawVisualStrings(); }
@@ -514,8 +552,6 @@
         };
 
         keySelector.onchange = (e) => { forceMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
-        
-        // ★ ユーフレット準拠ロジック：入力された数字をそのままプラスにする
         originalKeyBtn.onclick = () => { const songData = songDatabase[currentSongTitle]; if(!songData) return; forceMute(); currentTranspose = parseInt(songData.originalOffset || 0); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData); };
         
         scrollBtn.onclick = () => {
@@ -533,7 +569,7 @@
         let isStrumming = false; let pluckedStrings = new Set(); let strumRect; let lastStringIndex = -1; let lastStrumTime = 0;
 
         strumArea.addEventListener('pointerdown', (e) => {
-            if (!synth || currentNotes.length === 0) return;
+            if (!activeEngine || currentNotes.length === 0) return;
             isStrumming = true; pluckedStrings.clear(); lastStringIndex = -1; lastStrumTime = performance.now();
             strumRect = stringsContainer.getBoundingClientRect(); strumArea.setPointerCapture(e.pointerId); processStrum(e);
         });
@@ -561,9 +597,10 @@
             pluckedStrings.add(index); const note = currentNotes[index]; if (!note) return;
             try {
                 const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
-                synth.triggerAttack(transposedNote, Tone.now(), velocity);
                 
-                // ★ 修正：弾いた音を管理配列に入れる（これで初めてミュートが効くようになる）
+                // ★ アクティブなエンジン（楽器）で音を鳴らす
+                activeEngine.triggerAttack(transposedNote, Tone.now(), velocity);
+                
                 activeNotes.push(transposedNote);
                 
                 const vStr = document.getElementById('v-string-' + index);
@@ -572,11 +609,10 @@
             } catch(err) { console.warn(err); }
         }
 
-        // ★ 修正：完全なミュート（消音）関数。バグを直し、音がピタッと止まるようにしました
+        // ★ 消音機能も現在のアクティブエンジンに対して行う
         function forceMute() { 
-            if (!synth) return; 
-            // activeNotesに入っている音を全て強制リリース（消音）
-            activeNotes.forEach(note => { synth.triggerRelease(note, Tone.now()); }); 
+            if (!activeEngine) return; 
+            activeNotes.forEach(note => { activeEngine.triggerRelease(note, Tone.now()); }); 
             activeNotes = []; 
         }
 
@@ -610,7 +646,6 @@
         }
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown(); document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
-        // ★v10.2で構築した「最強の抽出ロジック（癒着対応）」
         document.getElementById('auto-extract-btn').onclick = () => {
             let rawText = document.getElementById('new-lyrics').value;
             if (!rawText) return alert("テキストを貼り付けてください！");
@@ -642,7 +677,6 @@
 
         document.getElementById('submit-song').onclick = async () => {
             const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
-            // 歌詞の中に[G]タグを自動で埋め込む簡単なパーサー（既存維持）
             let tokens = rawLyrics.split(/([\s\t\n\r　]+)/).filter(t => t !== "");
             let resultText = ""; let pendingChords = [];
             const chordRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|7|m7|sus4|add9|maj7)?)(?![a-z])$/i;
@@ -676,7 +710,6 @@
             }, 2000);
         });
 
-        fetchSongData();
     </script>
 </body>
 </html>
