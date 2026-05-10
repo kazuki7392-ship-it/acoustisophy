@@ -26,17 +26,22 @@
 
         #guide-area { height: 35%; background-color: #222; border-bottom: 2px solid #d4af37; display: flex; flex-direction: column; padding: 10px; position: relative; transition: 0.3s; }
         
-        #controls { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
-        #song-selector { flex-grow: 1; padding: 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; }
-        
-        /* ★ 新設：楽器セレクターのデザイン */
-        #instrument-selector { padding: 10px; background: #1a1a1a; color: #d4af37; border: 1px solid #d4af37; border-radius: 8px; font-weight: bold; font-size: 14px; outline: none; }
-        
-        #key-control-group { display: flex; align-items: center; gap: 5px; background: #1a1a1a; padding: 4px; border-radius: 8px; border: 1px solid #444; }
-        #original-key-btn { background: #444; color: #aaa; border: none; padding: 8px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; }
-        #original-key-btn.is-original { background: #d4af37; color: #1a1a1a; }
-        #key-selector { width: 70px; padding: 8px; background: #333; color: #d4af37; border: 1px solid #555; border-radius: 5px; font-weight: bold; text-align: center; }
-        
+        /* ▼▼▼ この部分をごっそり上書きしてください ▼▼▼ */
+
+#controls { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; width: 100%; }
+
+#song-selector { flex: 1.2; min-width: 0; padding: 8px 4px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; font-size: clamp(12px, 3.5vw, 16px); font-weight: bold; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+
+#instrument-selector { flex: 1; min-width: 0; padding: 8px 4px; background: #1a1a1a; color: #d4af37; border: 1px solid #d4af37; border-radius: 6px; font-weight: bold; font-size: clamp(11px, 3vw, 14px); text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+
+#key-control-group { display: flex; flex-shrink: 0; align-items: center; gap: 4px; background: #1a1a1a; padding: 4px; border-radius: 6px; border: 1px solid #444; }
+
+#original-key-btn { background: #444; color: #aaa; border: none; padding: 6px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
+#original-key-btn.is-original { background: #d4af37; color: #1a1a1a; }
+
+#key-selector { width: 55px; padding: 6px; background: #333; color: #d4af37; border: 1px solid #555; border-radius: 4px; font-weight: bold; font-size: 12px; text-align: center; }
+
+/* ▲▲▲ ここまで ▲▲▲ */
         #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
         #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; }
         #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
@@ -401,6 +406,10 @@
             const savedKey = localStorage.getItem(`myKey_${songTitle}`); currentTranspose = savedKey !== null ? parseInt(savedKey) : 0;
             updateKeyUI(songData);
             
+            // ★新設：曲を開いた時、その曲の「保存されたスクロール速度」を呼び出す（なければデフォルトの10）
+            const savedSpeed = localStorage.getItem(`scrollSpeed_${songTitle}`);
+            scrollSpeed.value = savedSpeed !== null ? savedSpeed : 10;
+            
             let rawLyrics = songData.lyrics.replace(/\\n/g, '\n');
             const formattedLyrics = rawLyrics.replace(/\[(.*?)\]/g, '<span style="color: #d4af37; font-weight: bold;">[$1]</span>');
             lyricDisplay.innerHTML = formattedLyrics; lyricDisplay.scrollTop = 0; currentScrollY = 0; if (isScrolling) scrollBtn.click(); 
@@ -554,6 +563,10 @@
         keySelector.onchange = (e) => { forceMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
         originalKeyBtn.onclick = () => { const songData = songDatabase[currentSongTitle]; if(!songData) return; forceMute(); currentTranspose = parseInt(songData.originalOffset || 0); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData); };
         
+        scrollSpeed.onchange = (e) => {
+            if (currentSongTitle) localStorage.setItem(`scrollSpeed_${currentSongTitle}`, e.target.value);
+        };
+
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
             if (isScrolling) { scrollBtn.textContent = "⏸ Pause"; scrollBtn.style.backgroundColor = "#d4af37"; scrollBtn.style.color = "#1a1a1a"; currentScrollY = lyricDisplay.scrollTop; lastTime = performance.now(); scrollAnimationFrame = requestAnimationFrame(autoScroll); } 
