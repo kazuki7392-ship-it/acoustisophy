@@ -583,15 +583,40 @@
         }
 
         document.getElementById('auto-extract-btn').onclick = () => {
-            const text = document.getElementById('new-lyrics').value; if (!text) return alert("テキストを貼り付けてください！");
-            let tokens = surgicalSplit(text.split(/[\s\n\t　]+/)); let foundUniqueChords = new Set(); const chordRegex = /^[A-G][#b]?(m|M|add|sus|dim|aug|maj)?[0-9]*(\-[0-9])?(\/[A-G][#b]?)?$/i;
-            tokens.forEach(token => { let cleanToken = token.trim().replace(/\[|\]/g, ""); if (cleanToken !== "" && !/[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(cleanToken) && (chordRegex.test(cleanToken) || masterChordDictionary[cleanToken])) { foundUniqueChords.add(cleanToken); } });
+            let rawText = document.getElementById('new-lyrics').value;
+            if (!rawText) return alert("テキストを貼り付けてください！");
+            
+            // ★ U-FRET特有の「全角♭♯」を「半角b#」に強制変換してバグを防ぐ！
+            let cleanText = rawText.replace(/♭/g, 'b').replace(/♯/g, '#');
+            
+            // ★ 最強の正規表現で、癒着していてもコードだけを完璧に探し出す
+            const chordRegex = /([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|7|m7|sus4|add9|maj7)?)(?![a-z])/g;
+            let matches = cleanText.match(chordRegex);
+            let foundUniqueChords = new Set();
+            
+            if (matches) {
+                matches.forEach(m => {
+                    let clean = m.trim().replace(/\[|\]/g, "");
+                    let formatted = clean.charAt(0).toUpperCase() + clean.slice(1);
+                    // 辞書にあるか、正しいコードの形なら登録
+                    if (masterChordDictionary[formatted] || /^[A-G][#b]?(m|7|maj7|sus4|add9)?$/i.test(formatted)) {
+                        foundUniqueChords.add(formatted);
+                    }
+                });
+            }
+            
             chordContainer.innerHTML = '';
-            foundUniqueChords.forEach(chordName => { let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1); createChordDropdown(root, chordName.substring(root.length)); });
+            foundUniqueChords.forEach(chordName => {
+                let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1);
+                createChordDropdown(root, chordName.substring(root.length));
+            });
         };
 
         document.getElementById('submit-song').onclick = async () => {
-            const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
+            const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); 
+            // ★ 保存する時も、全角♭♯を半角に直してから surgicalSplit に渡す！
+            let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#');
+            
             let tokens = surgicalSplit(rawLyrics.split(/[\s\t\n\r　]+/)).filter(t => t !== "");
             let resultText = ""; let pendingChords = [];
             for (let token of tokens) { let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token); if (!hasJapanese) { let cleanToken = token.replace(/\[|\]/g, ""); if (cleanToken.toUpperCase().startsWith("N.C") || masterChordDictionary[cleanToken]) { pendingChords.push(cleanToken); } } else { let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : ""; resultText += (resultText ? "　" : "") + chordStr + token; pendingChords = []; } }
