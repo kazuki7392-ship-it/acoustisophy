@@ -9,20 +9,17 @@
     <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="https://via.placeholder.com/192/d4af37/1a1a1a?text=AcoustiSophy">
     
-    <title>AcoustiSophy - v10.1 The Ultimate Instrument</title>
+    <title>AcoustiSophy - v10.3 The Silent Mute</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        /* デフォルトのスクロールや長押しメニューを完全に殺す */
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         input, textarea, select, button { user-select: auto !important; -webkit-user-select: auto !important; touch-action: auto !important; }
         
-        /* ゴムバンド効果を無効化 */
         body { background-color: #1a1a1a; color: #d4af37; font-family: sans-serif; height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; overscroll-behavior: none; }
         
         #start-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
         #start-btn { padding: 20px 40px; font-size: 24px; font-weight: bold; color: #1a1a1a; background-color: #d4af37; border: none; border-radius: 12px; cursor: pointer; }
         
-        /* モード切替タブ（iOSのノッチ避け） */
         #mode-switch { display: flex; width: 100%; background: #000; padding: env(safe-area-inset-top, 5px) 5px 5px 5px; z-index: 50; }
         .mode-tab { flex: 1; padding: 10px; text-align: center; font-weight: bold; color: #888; cursor: pointer; transition: 0.3s; border-radius: 8px; }
         .mode-tab.active { background: #d4af37; color: #1a1a1a; }
@@ -39,10 +36,13 @@
         #scroll-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; background: #2a2a2a; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; }
         #scroll-btn { background: #333; color: #d4af37; border: 1px solid #d4af37; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 14px; }
         #scroll-speed { flex-grow: 1; accent-color: #d4af37; }
+
+        /* ★ 新設：専用のLayout Editスイッチ（安全地帯に配置） */
+        #layout-lock-btn { background: #1a1a1a; color: #aaa; border: 1px solid #555; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.3s; }
+        #layout-lock-btn.unlocked { background: #d4af37; color: #1a1a1a; border-color: #d4af37; box-shadow: 0 0 10px rgba(212,175,55,0.5); }
         
         #lyric-display { flex-grow: 1; overflow-y: auto; color: #eee; font-size: 16px; line-height: 2.2; white-space: pre-wrap; padding: 10px 15px; background: #1a1a1a; border-radius: 8px; font-family: 'Courier New', Courier, monospace; }
         
-        /* フリーモード専用UI */
         #free-mode-display { display: none; flex-grow: 1; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; border-radius: 8px; position: relative; overflow: hidden; }
         #free-key-selector { font-size: 24px; padding: 10px 20px; background: #333; color: #d4af37; border: 2px solid #d4af37; border-radius: 12px; font-weight: bold; margin-bottom: 20px; outline: none; }
         #current-playing-chord { font-size: 64px; font-weight: bold; color: rgba(255,255,255,0.1); transition: color 0.1s, transform 0.1s; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
@@ -56,16 +56,13 @@
         #save-order-btn { background: #fff; color: #1a1a1a; }
         #toast { position: fixed; top: env(safe-area-inset-top, 20px); left: 50%; transform: translateX(-50%); background: #4CAF50; color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 
-        /* ホームバー領域を避けるための環境変数パディング */
         #app-container { display: flex; height: 65%; width: 100%; overflow: hidden; min-height: 0; position: relative; padding-bottom: env(safe-area-inset-bottom, 20px); }
         
-        /* 究極の1画面フィット・グリッド */
         #chord-area { width: 60%; padding: 8px; overflow: hidden; position: relative; display: grid; gap: 6px; grid-auto-rows: minmax(0, 1fr); grid-auto-flow: dense; }
         #chord-area.edit-mode { touch-action: none; }
         .chord-btn { background-color: #2a2a2a; color: #fff; font-weight: bold; border: 2px solid #444; border-radius: 10px; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s; text-align: center; position: relative; touch-action: none; min-height: 0; min-width: 0; word-break: break-word; line-height: 1.1; }
         .chord-btn.active { background-color: #d4af37; color: #1a1a1a; }
 
-        /* コード数に応じた3段階のダイナミック・グリッド */
         .grid-tier-1 { grid-template-columns: repeat(2, 1fr); }
         .grid-tier-1 > div:nth-child(4n + 1) { grid-row: span 2; font-size: clamp(18px, 6vw, 40px); background: linear-gradient(145deg, #3a3a3a, #222); border-color: #665522; }
         .grid-tier-1 > div:nth-child(4n) { grid-column: span 2; font-size: clamp(16px, 5vw, 36px); background: linear-gradient(145deg, #333, #1a1a1a); }
@@ -90,14 +87,7 @@
         
         #strum-area-container { width: 40%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #111; border-left: 1px solid #333; }
         
-        /* 誤爆防止のストロークエリア・セーフゾーン */
-        #strum-area { 
-            width: 90%; height: 70%; margin-bottom: 20px; 
-            background: linear-gradient(135deg, #111, #1a1a1a); border-radius: 20px; 
-            display: flex; flex-direction: column; justify-content: space-between; align-items: center; 
-            padding: 40px 0; position: relative; touch-action: none; 
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1); 
-        }
+        #strum-area { width: 90%; height: 70%; margin-bottom: 20px; background: linear-gradient(135deg, #111, #1a1a1a); border-radius: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 40px 0; position: relative; touch-action: none; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(212,175,55,0.1); }
         .strum-hint { color: #555; font-size: 12px; pointer-events: none; z-index: 10; font-weight: bold; }
         #visual-strings-container { position: absolute; top: 40px; bottom: 40px; left: 0; width: 100%; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; pointer-events: none; z-index: 5; }
         .string-zone { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
@@ -139,6 +129,7 @@
                 <button id="scroll-btn">▶ Scroll</button>
                 <span class="speed-label">Speed</span>
                 <input type="range" id="scroll-speed" min="1" max="60" value="10">
+                <button id="layout-lock-btn">🔒 Layout</button>
             </div>
             <div id="lyric-display" style="height: 180px;"></div>
         </div>
@@ -146,17 +137,12 @@
         <div id="free-mode-display">
             <div style="color:#aaa; font-size:12px; margin-bottom:5px;">Select Key (Diatonic Auto-Gen)</div>
             <select id="free-key-selector">
-                <option value="C">Key: C (Am)</option>
-                <option value="G">Key: G (Em)</option>
-                <option value="D">Key: D (Bm)</option>
-                <option value="A">Key: A (F#m)</option>
-                <option value="E">Key: E (C#m)</option>
-                <option value="F">Key: F (Dm)</option>
-                <option value="Bb">Key: Bb (Gm)</option>
-                <option value="Eb">Key: Eb (Cm)</option>
+                <option value="C">Key: C (Am)</option><option value="G">Key: G (Em)</option><option value="D">Key: D (Bm)</option><option value="A">Key: A (F#m)</option>
+                <option value="E">Key: E (C#m)</option><option value="F">Key: F (Dm)</option><option value="Bb">Key: Bb (Gm)</option><option value="Eb">Key: Eb (Cm)</option>
             </select>
             <div id="current-playing-chord">C</div>
             <div style="position:absolute; bottom:10px; font-size:11px; color:#555;">※上下左右スワイプで変異</div>
+            <button id="layout-lock-btn-free" style="position:absolute; bottom:30px; right:10px;" class="layout-lock-btn">🔒 Layout</button>
         </div>
     </div>
     
@@ -178,11 +164,11 @@
         </select>
         <label>Song Title:</label>
         <input type="text" id="new-title" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
-        <label>譜面は原曲キーからいくつズレてる？ (Original Offset):</label>
+        <label>ユーフレットのカポ数字をそのまま入力！ (Original Offset):</label>
         <select id="original-offset" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px;">
-            <option value="0">ズレなし</option>
-            <option value="1">+1</option><option value="2">+2</option><option value="3">+3</option><option value="4">+4</option><option value="5">+5</option><option value="6">+6</option><option value="7">+7</option>
-            <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option>
+            <option value="0">ズレなし(0)</option>
+            <option value="1">カポ 1</option><option value="2">カポ 2</option><option value="3">カポ 3</option><option value="4">カポ 4</option><option value="5">カポ 5</option><option value="6">カポ 6</option><option value="7">カポ 7</option>
+            <option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option>
         </select>
         <label>Lyrics & Chords:</label>
         <textarea id="new-lyrics" rows="6" style="width: 100%; padding: 10px; margin-bottom: 10px; background: #333; color: #fff; border: 1px solid #d4af37; border-radius: 5px; font-family: monospace;"></textarea>
@@ -199,7 +185,6 @@
     <button id="open-admin" style="position: fixed; bottom: env(safe-area-inset-bottom, 20px); right: 10px; background: rgba(212,175,55,0.3); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; z-index: 500;">Admin Mode</button>
 
     <script>
-        // 右クリックメニュー等無効化
         window.oncontextmenu = function(e) { e.preventDefault(); e.stopPropagation(); return false; };
 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxy8WCvKCQ4J_1wANZzrkSQEskvqPUf4MGTHchhv5yKYA7W6gV58gxhBLQ4ChYkyWFU/exec"; 
@@ -224,6 +209,10 @@
         const strumArea = document.getElementById('strum-area');
         const stringsContainer = document.getElementById('visual-strings-container');
         
+        // ★新設：Layout ロックスイッチ
+        const layoutLockBtn = document.getElementById('layout-lock-btn');
+        const layoutLockBtnFree = document.getElementById('layout-lock-btn-free');
+        
         const editHeader = document.getElementById('edit-header');
         const resetOrderBtn = document.getElementById('reset-order-btn');
         const saveOrderBtn = document.getElementById('save-order-btn');
@@ -238,14 +227,13 @@
         let currentNotes = []; 
         let currentChordName = ""; 
         let currentTranspose = 0; 
-        let activeNotes = []; 
+        let activeNotes = []; // ★これを修正し、正しくミュートできるようにしました
         let currentSongTitle = "";
         
         let currentChordsArray = []; 
         let originalChordsArray = []; 
         
         let isEditMode = false;
-        let longPressTimer = null;
         let draggedElement = null;
         let placeholder = null;
         let initialPointerEvent = null;
@@ -386,8 +374,13 @@
                 } else { btn.innerHTML = `<span>${chord.name}</span>`; }
                 
                 btn.setAttribute('data-base-name', chord.name); btn.setAttribute('data-notes', chord.notes); btn.setAttribute('data-index', index);
-                btn.addEventListener('pointerdown', handlePointerDown); btn.addEventListener('pointerup', handlePointerUp);
-                btn.addEventListener('pointermove', handlePointerMove); btn.addEventListener('pointercancel', handlePointerUp);
+                
+                // ★ イベントリスナー登録
+                btn.addEventListener('pointerdown', handlePointerDown); 
+                btn.addEventListener('pointerup', handlePointerUp);
+                btn.addEventListener('pointermove', handlePointerMove); 
+                btn.addEventListener('pointercancel', handlePointerUp);
+                
                 if(isEditMode) btn.classList.add('jiggling'); chordArea.appendChild(btn);
             });
         }
@@ -401,25 +394,39 @@
             }
         }
 
+        // ★ 新ロジック：長押しタイマーを完全排除し、タップミュートを実装
         function handlePointerDown(e) {
             initialPointerEvent = e; const element = this;
-            if (currentMode === 'song') {
-                if (isEditMode) { startDrag(e, this); return; }
-                longPressTimer = setTimeout(() => { enterEditMode(); startDrag(initialPointerEvent, element); }, 800);
+            
+            if (isEditMode) {
+                // 編集モードならドラッグ開始
+                startDrag(e, this); 
+                return; 
             }
-            if (!this.classList.contains('active')) { document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); }
-            currentChordName = this.getAttribute('data-base-name'); currentNotes = this.getAttribute('data-notes').split(',');
-            updateFreeModeDisplay(currentChordName); drawVisualStrings(); softMute();
+
+            // 演奏モードの時
+            if (this.classList.contains('active')) {
+                // ★ アクティブなボタンを叩いた時 ＝ ミュート発動！！
+                forceMute();
+            } else {
+                // ★ 違うボタンを叩いた時 ＝ コードチェンジ
+                document.querySelectorAll('.chord-btn').forEach(b => b.classList.remove('active')); 
+                this.classList.add('active'); 
+                currentChordName = this.getAttribute('data-base-name'); 
+                currentNotes = this.getAttribute('data-notes').split(',');
+                updateFreeModeDisplay(currentChordName); 
+                drawVisualStrings(); 
+                
+                // 前の音を静かに消す（コードチェンジを自然にするため）
+                forceMute(); 
+            }
         }
 
-        function handlePointerUp(e) { clearTimeout(longPressTimer); if (isEditMode && draggedElement) { endDrag(e); } }
+        function handlePointerUp(e) { if (isEditMode && draggedElement) { endDrag(e); } }
 
         function handlePointerMove(e) {
-            if (currentMode === 'song' && !isEditMode) { 
-                if (initialPointerEvent && (Math.abs(e.clientX - initialPointerEvent.clientX) > 10 || Math.abs(e.clientY - initialPointerEvent.clientY) > 10)) { clearTimeout(longPressTimer); }
-            } 
-            else if (isEditMode && draggedElement) { moveDrag(e); }
-            else if (currentMode === 'free' && initialPointerEvent) {
+            if (isEditMode && draggedElement) { moveDrag(e); }
+            else if (currentMode === 'free' && initialPointerEvent && !isEditMode) {
                 const dx = e.clientX - initialPointerEvent.clientX; const dy = e.clientY - initialPointerEvent.clientY;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 if (dist > 20) { 
@@ -428,19 +435,41 @@
                     else { if (dy > 0) newChordName = root + "7"; else newChordName = root + "maj7"; }
                     if (masterChordDictionary[newChordName] && currentChordName !== newChordName) {
                         currentChordName = newChordName; currentNotes = masterChordDictionary[newChordName].split(',');
-                        updateFreeModeDisplay(currentChordName); drawVisualStrings(); softMute();
+                        updateFreeModeDisplay(currentChordName); drawVisualStrings(); forceMute();
                     }
                 }
             }
         }
 
+        // ★ 新設：専用のLayoutロックスイッチでモード切替
+        function toggleLayoutMode() {
+            if(isEditMode) exitEditMode();
+            else enterEditMode();
+        }
+        layoutLockBtn.onclick = toggleLayoutMode;
+        layoutLockBtnFree.onclick = toggleLayoutMode;
+
         function enterEditMode() {
-            if (isEditMode) return;
-            isEditMode = true; chordArea.classList.add('edit-mode'); editHeader.style.display = 'flex';
-            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); }); forceMute();
+            isEditMode = true; 
+            chordArea.classList.add('edit-mode'); 
+            editHeader.style.display = 'flex';
+            
+            // ボタンの見た目を変える
+            layoutLockBtn.classList.add('unlocked'); layoutLockBtn.innerHTML = '🔓 Unlocked';
+            layoutLockBtnFree.classList.add('unlocked'); layoutLockBtnFree.innerHTML = '🔓 Unlocked';
+            
+            document.querySelectorAll('.chord-btn').forEach(btn => { btn.classList.add('jiggling'); btn.classList.remove('active'); }); 
+            forceMute();
         }
         function exitEditMode() {
-            isEditMode = false; chordArea.classList.remove('edit-mode'); editHeader.style.display = 'none';
+            isEditMode = false; 
+            chordArea.classList.remove('edit-mode'); 
+            editHeader.style.display = 'none';
+            
+            // ボタンの見た目を戻す
+            layoutLockBtn.classList.remove('unlocked'); layoutLockBtn.innerHTML = '🔒 Layout';
+            layoutLockBtnFree.classList.remove('unlocked'); layoutLockBtnFree.innerHTML = '🔒 Layout';
+            
             document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('jiggling'));
             const firstBtn = chordArea.querySelector('.chord-btn');
             if(firstBtn) { firstBtn.classList.add('active'); currentNotes = firstBtn.getAttribute('data-notes').split(','); drawVisualStrings(); }
@@ -484,16 +513,11 @@
             if(confirm("初期状態に戻しますか？")) { localStorage.removeItem(`customOrder_${currentSongTitle}`); currentChordsArray = [...originalChordsArray]; exitEditMode(); renderChords(); }
         };
 
-        keySelector.onchange = (e) => { softMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
-        originalKeyBtn.onclick = () => {
-    const songData = songDatabase[currentSongTitle];
-    if(!songData) return;
-    softMute();
-    // ★ originalOffset（譜面のズレ）の「逆」をセットする！
-    currentTranspose = -(parseInt(songData.originalOffset || 0)); 
-    localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); 
-    updateKeyUI(songData);
-};
+        keySelector.onchange = (e) => { forceMute(); currentTranspose = parseInt(e.target.value); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songDatabase[currentSongTitle]); };
+        
+        // ★ ユーフレット準拠ロジック：入力された数字をそのままプラスにする
+        originalKeyBtn.onclick = () => { const songData = songDatabase[currentSongTitle]; if(!songData) return; forceMute(); currentTranspose = parseInt(songData.originalOffset || 0); localStorage.setItem(`myKey_${currentSongTitle}`, currentTranspose); updateKeyUI(songData); };
+        
         scrollBtn.onclick = () => {
             isScrolling = !isScrolling;
             if (isScrolling) { scrollBtn.textContent = "⏸ Pause"; scrollBtn.style.backgroundColor = "#d4af37"; scrollBtn.style.color = "#1a1a1a"; currentScrollY = lyricDisplay.scrollTop; lastTime = performance.now(); scrollAnimationFrame = requestAnimationFrame(autoScroll); } 
@@ -538,14 +562,23 @@
             try {
                 const transposedNote = Tone.Frequency(note).transpose(currentTranspose).toNote();
                 synth.triggerAttack(transposedNote, Tone.now(), velocity);
+                
+                // ★ 修正：弾いた音を管理配列に入れる（これで初めてミュートが効くようになる）
+                activeNotes.push(transposedNote);
+                
                 const vStr = document.getElementById('v-string-' + index);
                 if (vStr) { vStr.classList.add('plucked'); setTimeout(() => { vStr.classList.remove('plucked'); }, 150); }
                 updateFreeModeDisplay(currentChordName);
             } catch(err) { console.warn(err); }
         }
 
-        function softMute() { if (!synth || activeNotes.length === 0) return; const now = Tone.now(); activeNotes.forEach(note => { synth.triggerRelease(note, now); }); activeNotes = []; }
-        function forceMute() { if (!synth) return; synth.releaseAll(Tone.now()); activeNotes = []; }
+        // ★ 修正：完全なミュート（消音）関数。バグを直し、音がピタッと止まるようにしました
+        function forceMute() { 
+            if (!synth) return; 
+            // activeNotesに入っている音を全て強制リリース（消音）
+            activeNotes.forEach(note => { synth.triggerRelease(note, Tone.now()); }); 
+            activeNotes = []; 
+        }
 
         function initSongSelector() {
             const currentVal = songSelector.value; songSelector.innerHTML = "";
@@ -577,58 +610,60 @@
         }
         document.getElementById('add-chord-btn').onclick = () => createChordDropdown(); document.getElementById('remove-chord-btn').onclick = () => { if (chordContainer.lastChild) chordContainer.removeChild(chordContainer.lastChild); };
 
-        function surgicalSplit(initialTokens) {
-            let processedTokens = []; const gluedRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|)?\d*(?:\-[0-9])?(?:\/[A-G][#b]?)?|N\.?C\.?)([ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠].*)$/i;
-            for (let t of initialTokens) { let cleanT = t.replace(/\[|\]/g, ""); let match = cleanT.match(gluedRegex); if (match) { processedTokens.push(match[1]); processedTokens.push(match[2]); continue; } processedTokens.push(t); } return processedTokens;
-        }
-
+        // ★v10.2で構築した「最強の抽出ロジック（癒着対応）」
         document.getElementById('auto-extract-btn').onclick = () => {
             let rawText = document.getElementById('new-lyrics').value;
             if (!rawText) return alert("テキストを貼り付けてください！");
-            
-            // ★ U-FRET特有の「全角♭♯」を「半角b#」に強制変換してバグを防ぐ！
+
             let cleanText = rawText.replace(/♭/g, 'b').replace(/♯/g, '#');
-            
-            // ★ 最強の正規表現で、癒着していてもコードだけを完璧に探し出す
             const chordRegex = /([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|7|m7|sus4|add9|maj7)?)(?![a-z])/g;
             let matches = cleanText.match(chordRegex);
             let foundUniqueChords = new Set();
-            
+
             if (matches) {
                 matches.forEach(m => {
-                    let clean = m.trim().replace(/\[|\]/g, "");
-                    let formatted = clean.charAt(0).toUpperCase() + clean.slice(1);
-                    // 辞書にあるか、正しいコードの形なら登録
-                    if (masterChordDictionary[formatted] || /^[A-G][#b]?(m|7|maj7|sus4|add9)?$/i.test(formatted)) {
+                    let potentialChord = m.trim().replace(/\[|\]/g, "");
+                    let formatted = potentialChord.charAt(0).toUpperCase() + potentialChord.slice(1);
+                    if (masterChordDictionary[formatted]) {
                         foundUniqueChords.add(formatted);
                     }
                 });
             }
-            
+
             chordContainer.innerHTML = '';
+            if (foundUniqueChords.size === 0) return alert("コードが見つかりませんでした。テキストを確認してください。");
+
             foundUniqueChords.forEach(chordName => {
                 let root = (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) ? chordName.substring(0, 2) : chordName.substring(0, 1);
-                createChordDropdown(root, chordName.substring(root.length));
+                let quality = chordName.substring(root.length);
+                createChordDropdown(root, quality);
             });
         };
 
         document.getElementById('submit-song').onclick = async () => {
-            const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); 
-            // ★ 保存する時も、全角♭♯を半角に直してから surgicalSplit に渡す！
-            let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#');
-            
-            let tokens = surgicalSplit(rawLyrics.split(/[\s\t\n\r　]+/)).filter(t => t !== "");
+            const title = titleInput.value; const originalOffset = parseInt(originalOffsetInput.value); let rawLyrics = lyricsInput.value.replace(/[\u200B-\u200D\uFEFF]/g, '');
+            // 歌詞の中に[G]タグを自動で埋め込む簡単なパーサー（既存維持）
+            let tokens = rawLyrics.split(/([\s\t\n\r　]+)/).filter(t => t !== "");
             let resultText = ""; let pendingChords = [];
-            for (let token of tokens) { let hasJapanese = /[ぁ-んァ-ヶｱ-ﾝﾞ-ﾟ一-龠]/.test(token); if (!hasJapanese) { let cleanToken = token.replace(/\[|\]/g, ""); if (cleanToken.toUpperCase().startsWith("N.C") || masterChordDictionary[cleanToken]) { pendingChords.push(cleanToken); } } else { let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : ""; resultText += (resultText ? "　" : "") + chordStr + token; pendingChords = []; } }
-            if (pendingChords.length > 0) { resultText += (resultText ? "　" : "") + pendingChords.map(c => `[${c}]`).join(""); }
+            const chordRegex = /^([A-G][#b]?(?:m|M|add|sus|dim|aug|maj|7|m7|sus4|add9|maj7)?)(?![a-z])$/i;
+            
+            for (let token of tokens) { 
+                let cleanToken = token.trim().replace(/\[|\]/g, "");
+                if (cleanToken !== "" && chordRegex.test(cleanToken) && masterChordDictionary[cleanToken.charAt(0).toUpperCase() + cleanToken.slice(1)]) { 
+                    pendingChords.push(cleanToken.charAt(0).toUpperCase() + cleanToken.slice(1)); 
+                } else { 
+                    let chordStr = pendingChords.length > 0 ? pendingChords.map(c => `[${c}]`).join("") : ""; 
+                    resultText += chordStr + token; 
+                    pendingChords = []; 
+                } 
+            }
+            if (pendingChords.length > 0) { resultText += pendingChords.map(c => `[${c}]`).join(""); }
+            
             const chordsArray = Array.from(chordContainer.querySelectorAll('.chord-group')).map(group => { const combinedName = group.querySelectorAll('select')[0].value + group.querySelectorAll('select')[1].value; return { name: combinedName, notes: masterChordDictionary[combinedName] || "C4,E4,G4" }; });
             if (!title || !resultText) return alert("曲名と歌詞は必須です！"); document.getElementById('submit-song').textContent = "Uploading...";
             try { const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ title: title, lyrics: resultText, chords: JSON.stringify(chordsArray), originalOffset: originalOffset }) }); const result = await response.json(); if (result.status === "success") { location.reload(); } else { throw new Error(result.message); } } catch (error) { alert("エラー: " + error); }
         };
 
-        // ==========================================
-        // ★ Android専用：ブラウザバック（戻るスワイプ）の完全封殺ハック
-        // ==========================================
         history.pushState(null, null, location.href);
         window.addEventListener('popstate', (e) => {
             history.go(1);
